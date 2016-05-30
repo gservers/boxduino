@@ -4,12 +4,12 @@ Using atMega328P (Arduino Nano) to control 3034 N-channel MOSFET transistor with
 
 Version 1.0:
   Working:
-    -HD77480 display
-    -Sleep / Power on
-    -Firing
-    -Read input voltage
-    -Very simple control
-    -Battery indicator
+    -HD77480 display\n
+    -Sleep / Power on\n
+    -Firing\n
+    -Read input voltage\n
+    -Very simple control\n
+    -Battery indicator\n
     
   To do:
     -Ohmmeter
