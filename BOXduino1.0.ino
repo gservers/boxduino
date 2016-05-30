@@ -8,7 +8,6 @@
     
 #include <avr/sleep.h>
 #include <avr/power.h>
-#define F_CPU 12000000L
 #include <LiquidCrystal.h>
 LiquidCrystal lcd(7, 8, 9, 10, 11, 12);
 bool on = true; //Stan wlaczenia
