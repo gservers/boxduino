@@ -1,4 +1,4 @@
-## BOXuino - the first Arduino powered e-cigarette!
+## BOXduino - the first Arduino powered e-cigarette!
 
 Using atMega328P (Arduino Nano) to control 3034 N-channel MOSFET transistor with pwm.
 
