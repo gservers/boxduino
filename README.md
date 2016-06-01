@@ -7,15 +7,15 @@ Currently working:
   * Firing
   * Read input voltage
   * Very simple control
-  * Battery indicator
-  * Ohmmeter
+  * Battery indicator and ohmmeter (pretty accurate)
   * (Almost) perfect scheme in Fritzing
 
 Cons:
-  * No display (yet), only serial communication  
-  * Non-English comments (gonna change)  
+  * No display implemented (yet)
   * Power consumption > 100mA  
-  
-Check Issues for ToDo list.  
 
-##Feel free to add new suggestions!
+Switch VV / Bypass: Turn the potentiometer to 0 and short press the fire button.   
+Power off: Turn the potentiometer to 0 and hold the fire button.  
+Power on: Hold the button.  
+  
+##Check Issues for ToDo list and feel free to add new suggestions!
