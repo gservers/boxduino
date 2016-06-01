@@ -1,39 +1,45 @@
-/*  Arduino controlled box mod by Marek Ledworowski
-    Before committing changes please contact me first
-    at fotelpl@gmail.com .
-    I'm not responsible for dead MCU's, burnt lungs
-    and all stuff that may be dangerous or sad.
-    Version 1.0 - Getting all parts and stuff
+/*  Arduino controlled box mod by Marek Ledworowski.
+    If you want to use my code for your own box mod,
+    please contact me first at fotelpl@gmail.com
+
+    I'm not responsible for dead MCU's, burnt PC's,
+    smoked cigarettes or electrocutions.
+    This sketch is in early dev stage, so there is no
+    warranty it won't drink all your milk and steal
+    your car.
+
+    TL;DR - You are responsible for your mistakes. Not me.
 */
 #include <avr/sleep.h>
 #include <avr/power.h>
-bool on = true; //Stan wlaczenia
-const int fire = 2; //Przycisk
-const int mosfet = 6; //Wyjscie (PWM)
-const int pot = A0; //Potencjometr
-const int volt = A1; //Woltomierz Vin
-const int ohmmet = A2; //Omomierz
+bool on = true; //Check if powered
+const int fire = 2; //Fire button
+const int mosfet = 6; //PWM output to N-FET
+const int bcg = 3; //PCD8544 backlight
+const int pot = A0; //Potentiometer
+const int volt = A1; // Vin voltmeter
+const int ohmmet = A2; //Ohmmeter
+const int bouncedelay = 50; //Short press
+const int holddelay = 100; //Long press
+
+const float r1 = 1000000.0; //R1 of Vin voltmeter
+const float r2 = 100000.0; //R2 Vin voltmeter
+const float wireres = 0.21; //Resistance of wires. Breadboard only.
+const float vin = 8.4; //Max. supply voltage
+const float vbord = 6; //Max. discharge voltage
 
 int mode = 0; //0 - VV/VW, 1 - BYPASS
-int bouncedelay = 100;
-int holddelay = 500;
+long int tempnow; //First click
+long int tempend; //Last click
 
-long int tempnow; //Poczatek klikania
-long int tempend; //Koniec klikania
+float state = 0; //% of potentiometer scale
+float rms = 0;  //RMS voltage
+float duty = 0; //duty cycle (0-255)
+float vbat = 0; //Vin voltage
+float cbat = 0; //Baterry %
+float res = 0; //Resistance
 
-const float r1 = 1000000.0; //R1 woltomierza Vin
-const float r2 = 100000.0; //R2 woltomierza Vin
-
-float state = 0; //Wychylenie w %
-float rms = 0;  //Napięcie RMS
-float duty = 0; //Dlugosc cyklu 0-255
-float vbat = 0; //Napiecie zasilania
-float vin = 8.4; //Napiecie referencyjne zasilania
-float vbord = 6; //Granic rozladowania
-float cbat = 0; //% naladowania baterii
-float res = 0; //omomierz
-float light = 256.0; //Jasnosc podswietlenia
-byte full[8] = {
+byte full[8] = { //Saving them, may be useful later
   B00000,
   B01110,
   B11111,
@@ -94,52 +100,49 @@ byte ohm[8] = {
   B11011,
 };
 void setup() {
+  Serial.begin(9600); //Just for debug
   pinMode(pot, INPUT);
   pinMode(volt, INPUT);
   pinMode(fire, INPUT);
   pinMode(mosfet, OUTPUT);
   pinMode(ohmmet, INPUT);
-  Serial.begin(19200);
+  pinMode(bcg, OUTPUT);
   //lcd.createChar(0, full);
   //lcd.createChar(1, hi);
   //lcd.createChar(2, med);
   //lcd.createChar(3, low);
   //lcd.createChar(4, empty);
   //lcd.createChar(5, ohm);
-  vbat = gainvbat(volt, r1, r2);
-  duty = gainduty(pot);
-  rms = gainrms(vbat, duty);
+  analogWrite(bcg, 48); //Not nescessary
+  res = gainres(ohmmet, wireres); //This data dosen't need to be
+  vbat = gainvbat(volt, r1, r2);  //refreshed very frequently
 }
 void loop() {
-  vbat = gainvbat(volt, r1, r2);
-  duty = gainduty(pot);
+  duty = gainduty(pot); //This needs to be refreshed every time
   rms = gainrms(vbat, duty);
-  res = gainres(ohmmet);
-  res -= 0.21; //For breadboard only. After soldering will be changed.
-  if(res > 9.99) res = 9.99;
-  if(res < 0) res = 0;
-  Serial.println(res);
-  /*if (rms < 0.1 && digitalRead(fire) == HIGH ) {
+
+  if (rms < 0.1 && digitalRead(fire) == HIGH ) { //f***** up s***
     tempnow = millis();
     while (digitalRead(fire) == HIGH) {}
     tempend = millis();
     if ((tempend - tempnow) >= holddelay) {
       on = false;
       power();
-    } else if ((tempend - tempnow) < bouncedelay) {
+      res = gainres(ohmmet, wireres);
+      vbat = gainvbat(volt, r1, r2);
+    } else if ((tempend - tempnow) <= bouncedelay) {
       if (mode == 1) mode = 0;
       else mode = 1;
     }
-    } else if (digitalRead(fire) == HIGH && rms >= 0.1) {
+  } else if (digitalRead(fire) == HIGH && rms >= 0.1) {
     tempnow = millis();
-    while (millis() - tempnow < bouncedelay && digitalRead(fire) == HIGH) {}
+    while (millis() - tempnow >= holddelay && digitalRead(fire) == HIGH) {}
     if (mode == 0 && digitalRead(fire) == HIGH) watt(mosfet, duty, fire);
     if (mode == 1 && digitalRead(fire) == HIGH) bypass(mosfet, fire);
-    }*/
-  delay(10);
+  }
 }
-
-/*void updatebat(float tmpvbat) {
+//Saving this function for later use
+/*void updatebat(float tmpvbat) { 
   float cbat = ((tmpvbat - vbord) * 100) / vin; //wypisanie na ekranie
   if (cbat < 0) cbat = 0;
   if (cbat == 100) lcd.setCursor(10, 1);
@@ -151,8 +154,8 @@ void loop() {
   if (cbat < 40 && cbat >= 15) lcd.write(byte(3));
   if (cbat < 15) lcd.write(byte(4));
   }*/
-
-void watt(int mostmp, float dutmp, int fitmp) { //mosfet, duty, fire
+//MOSFET port, duty cycle, fire button port
+void watt(int mostmp, float dutmp, int fitmp) {
   float czas = millis();
   float licz = 0;
   analogWrite(mostmp, dutmp);
@@ -164,8 +167,8 @@ void watt(int mostmp, float dutmp, int fitmp) { //mosfet, duty, fire
     delay(2500);
   }
 }
-
-void bypass(int mostmp, int fitmp) { //mosfet, fire
+//MOSFET port, fire button port
+void bypass(int mostmp, int fitmp) {
   float czas = millis();
   float licz = 0;
   analogWrite(mostmp, 1023);
@@ -177,14 +180,14 @@ void bypass(int mostmp, int fitmp) { //mosfet, fire
     delay(2500);
   }
 }
-
+//Vin voltmeter port, R1, R2
 float gainvbat(int batmp, float rtmp1, float rtmp2) {
   float value = analogRead(batmp);
   float vout = (value * 5.0) / 1024.0;
   float vbatmp = vout / (rtmp2 / (rtmp1 + rtmp2));
   return (vbatmp);
 }
-
+//Potentiometer port
 int gainduty(float potmp) {
   float dutmp = analogRead(potmp);
   dutmp /= 4;
@@ -192,21 +195,29 @@ int gainduty(float potmp) {
   if (dutmp >= 256) dutmp = 255;
   return (dutmp);
 }
-
+//Vin voltage, duty cycle
 float gainrms(float vbatmp, float dutmp) {
   float statmp = (dutmp * 100) / 255; //Stan w %
   float rmstmp = vbatmp * sqrt(statmp / 100); //RMS
   return (rmstmp);
 }
-
-float gainres(int ohmtmp) {
-  int val = analogRead(ohmtmp);
-  float volts = (val * 5) / 1023.0 ;
-  float resistance = volts * 8; //Set for 10ohm Vadj resistor for LM317
-  //float resistance = volts / 0.125; //Change 0.125 if needed
+//Ohmmeter port, resistance of connection wires
+//Average of 5 measurements to avoid too big values
+float gainres(int ohmtmp, float wirerestmp) {
+  float tmp = 0, val, volts, resistance;
+  for (int a = 0; a < 5; a++) {
+    val = analogRead(ohmtmp);
+    volts = (val * 5) / 1023.0;
+    resistance = volts / 0.125; //Change 0.125 if needed
+    resistance -= wirerestmp;
+    if (resistance > 9.99) resistance = 9.99;
+    if (resistance < 0) resistance = 0;
+    tmp += resistance;
+  }
+  resistance = tmp / 5;
   return (resistance);
 }
-
+//Shutdown
 void power() {
   attachInterrupt(fire, poweron, HIGH);
   set_sleep_mode(SLEEP_MODE_IDLE);
@@ -216,7 +227,7 @@ void power() {
   if (on == false) poweron();
   sleep_disable();
 }
-
+//Apparently this little guy works well
 void poweron() {
   detachInterrupt(fire);
   long int teemp = millis();
