@@ -8,19 +8,23 @@
     warranty it won't drink all your milk and steal
     your car.
 
-    TL;DR - You are responsible for your mistakes. Not me.
+    TL;DR - You are responsible for this. Not me.
+            Do not redistribute without my permission.
 */
+#include <ClickButton.h>
+//https://github.com/stevecooley/beatseqr-software/tree/master/arduino_code/beatseqr_arduino_firmware_4_experimental
 #include <avr/sleep.h>
 #include <avr/power.h>
 bool on = true; //Check if powered
-const int fire = 2; //Fire button
 const int mosfet = 6; //PWM output to N-FET
+ClickButton fire(2, HIGH); //Define fire button as object
 const int bcg = 3; //PCD8544 backlight
 const int pot = A0; //Potentiometer
 const int volt = A1; // Vin voltmeter
 const int ohmmet = A2; //Ohmmeter
 const int bouncedelay = 50; //Short press
 const int holddelay = 100; //Long press
+const int baud = 9600; //Serial baudrate
 
 const float r1 = 1000000.0; //R1 of Vin voltmeter
 const float r2 = 100000.0; //R2 Vin voltmeter
@@ -29,6 +33,7 @@ const float vin = 8.4; //Max. supply voltage
 const float vbord = 6; //Max. discharge voltage
 
 int mode = 0; //0 - VV/VW, 1 - BYPASS
+int cnt = 0; //How many times button was pressed
 long int tempnow; //First click
 long int tempend; //Last click
 
@@ -103,7 +108,7 @@ void setup() {
   Serial.begin(9600); //Just for debug
   pinMode(pot, INPUT);
   pinMode(volt, INPUT);
-  pinMode(fire, INPUT);
+  pinMode(2, INPUT);
   pinMode(mosfet, OUTPUT);
   pinMode(ohmmet, INPUT);
   pinMode(bcg, OUTPUT);
@@ -114,35 +119,53 @@ void setup() {
   //lcd.createChar(4, empty);
   //lcd.createChar(5, ohm);
   analogWrite(bcg, 48); //Not nescessary
+  fire.debounceTime = 30;
+  fire.multiclickTime = 300;
+  fire.longClickTime = 500;
   res = gainres(ohmmet, wireres); //This data dosen't need to be
   vbat = gainvbat(volt, r1, r2);  //refreshed very frequently
+  on = true;
 }
 void loop() {
   duty = gainduty(pot); //This needs to be refreshed every time
   rms = gainrms(vbat, duty);
-
-  if (rms < 0.1 && digitalRead(fire) == HIGH ) { //f***** up s***
-    tempnow = millis();
-    while (digitalRead(fire) == HIGH) {}
-    tempend = millis();
-    if ((tempend - tempnow) >= holddelay) {
-      on = false;
-      power();
+  fire.Update();
+  cnt = fire.clicks;
+  switch (cnt) {
+    case -1: if (mode == 0) watt(mosfet, duty, 2);
+      if (mode == 1) bypass(mosfet, 2);
       res = gainres(ohmmet, wireres);
       vbat = gainvbat(volt, r1, r2);
-    } else if ((tempend - tempnow) <= bouncedelay) {
-      if (mode == 1) mode = 0;
-      else mode = 1;
-    }
-  } else if (digitalRead(fire) == HIGH && rms >= 0.1) {
-    tempnow = millis();
-    while (millis() - tempnow >= holddelay && digitalRead(fire) == HIGH) {}
-    if (mode == 0 && digitalRead(fire) == HIGH) watt(mosfet, duty, fire);
-    if (mode == 1 && digitalRead(fire) == HIGH) bypass(mosfet, fire);
+      break;
+    case 3: if (mode == 1) mode = 0;
+      else if (mode == 0) mode = 1;
+      break;
+    case 5: on = false; break;
+    case 6: printstate(baud, res, vbat, duty, rms); break;
   }
+  cnt = 0;
+  power();
+}
+
+void printstate(int tmpbaud, float restmp, float vbatmp, float dutmp, float rmstmp) {
+  //Serial.begin(tmpbaud);
+  Serial.println("BOXduino service mode");
+  Serial.print("Resistance: ");
+  Serial.print(restmp, 1);
+  Serial.print("ohm\n");
+  Serial.print("RMS Voltage: ");
+  Serial.print(rmstmp, 1);
+  Serial.print("V\n");
+  Serial.print("Supply voltage: ");
+  Serial.print(vbatmp, 1);
+  Serial.print("V\n");
+  Serial.print("Digital duty cycle: ");
+  Serial.print(dutmp, 1);
+  Serial.print("/255\n");
+  Serial.println("-=-=-=-=-=-=-=-=-=-=-");
 }
 //Saving this function for later use
-/*void updatebat(float tmpvbat) { 
+/*void updatebat(float tmpvbat) {
   float cbat = ((tmpvbat - vbord) * 100) / vin; //wypisanie na ekranie
   if (cbat < 0) cbat = 0;
   if (cbat == 100) lcd.setCursor(10, 1);
@@ -219,19 +242,19 @@ float gainres(int ohmtmp, float wirerestmp) {
 }
 //Shutdown
 void power() {
-  attachInterrupt(fire, poweron, HIGH);
+  attachInterrupt(2, poweron, HIGH);
   set_sleep_mode(SLEEP_MODE_IDLE);
   sleep_enable();
   sleep_mode();
-  while (on == false && digitalRead(fire) == LOW) {}
+  while (on == false && digitalRead(2) == LOW) {}
   if (on == false) poweron();
   sleep_disable();
 }
 //Apparently this little guy works well
 void poweron() {
-  detachInterrupt(fire);
+  detachInterrupt(2);
   long int teemp = millis();
-  while (digitalRead(fire) == HIGH) {}
-  if ((millis() - teemp) >= 2000) on = true;
+  while (digitalRead(2) == HIGH) {}
+  if ((millis() - teemp) >= 3000) on = true;
   power();
 }
