@@ -140,27 +140,30 @@ void loop() {
       else if (mode == 0) mode = 1;
       break;
     case 5: on = false; power(); break;
-    case 6: printstate(baud, res, vbat, duty, rms); break;
+    case 6: printstate(baud, res, vbat, duty, rms, mode); break;
   }
   cnt = 0;
 }
 
-void printstate(int tmpbaud, float restmp, float vbatmp, float dutmp, float rmstmp) {
+void printstate(int tmpbaud, float restmp, float vbatmp, float dutmp, float rmstmp, int modtmp) {
   //Serial.begin(tmpbaud);
   Serial.println("BOXduino service mode");
   Serial.print("Resistance: ");
-  Serial.print(restmp, 1);
+  Serial.print(restmp, 2);
   Serial.print("ohm\n");
-  Serial.print("RMS Voltage: ");
-  Serial.print(rmstmp, 1);
-  Serial.print("V\n");
   Serial.print("Supply voltage: ");
   Serial.print(vbatmp, 1);
   Serial.print("V\n");
+  Serial.print("Mode: ");
+  if(mode == 0) Serial.print("Regulated\n");
+  if(mode == 1) Serial.print("Bypass\n");
+  Serial.print("RMS voltage: ");
+  Serial.print(rmstmp, 1);
+  Serial.print("V\n");
   Serial.print("Digital duty cycle: ");
-  Serial.print(dutmp, 1);
+  Serial.print(dutmp);
   Serial.print("/255\n");
-  Serial.println("-=-=-=-=-=-=-=-=-=-=-");
+  Serial.println("-=-=-=-=-=-=-=-=-=-=-=-=-=-=-");
 }
 //Saving this function for later use
 /*void updatebat(float tmpvbat) {
@@ -233,11 +236,11 @@ float gainres(int ohmtmp, float wirerestmp) {
     volts = (val * 5) / 1023.0;
     resistance = volts / 0.125; //Change 0.125 if needed
     resistance -= wirerestmp;
-    if (resistance > 9.99) resistance = 9.99;
-    if (resistance < 0) resistance = 0;
     tmp += resistance;
   }
   resistance = tmp / 5;
+  if (resistance > 9.99) resistance = 9.99;
+  if (resistance < 0) resistance = 0;
   return (resistance);
 }
 //Shutdown
