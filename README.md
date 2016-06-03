@@ -12,10 +12,12 @@ Currently working:
 
 Cons:
   * No display implemented (yet)
-  * Power consumption > 100mA  
+  * Power consumption > 100mA (caused by ohmmeter which is always on)  
 
-Switch VV / Bypass: Turn the potentiometer to 0 and short press the fire button.   
-Power off: Turn the potentiometer to 0 and hold the fire button.  
-Power on: Hold the button.  
+Controls:  
+* Fire: Hold the button
+* Switch VV / Bypass: 3x fast click  
+* Power off: 5x fast click  
+* Power on: Hold the button.   
   
 ##Check Issues for ToDo list and feel free to add new suggestions!
