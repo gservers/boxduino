@@ -122,29 +122,27 @@ void setup() {
   fire.debounceTime = 30;
   fire.multiclickTime = 300;
   fire.longClickTime = 500;
-  res = gainres(ohmmet, wireres); //This data dosen't need to be
-  vbat = gainvbat(volt, r1, r2);  //refreshed very frequently
   on = true;
 }
 void loop() {
   duty = gainduty(pot); //This needs to be refreshed every time
   rms = gainrms(vbat, duty);
+  res = gainres(ohmmet, wireres);
+  vbat = gainvbat(volt, r1, r2);
   fire.Update();
   cnt = fire.clicks;
   switch (cnt) {
     case -1: if (mode == 0) watt(mosfet, duty, 2);
       if (mode == 1) bypass(mosfet, 2);
-      res = gainres(ohmmet, wireres);
-      vbat = gainvbat(volt, r1, r2);
+      delay(50);
       break;
     case 3: if (mode == 1) mode = 0;
       else if (mode == 0) mode = 1;
       break;
-    case 5: on = false; break;
+    case 5: on = false; power(); break;
     case 6: printstate(baud, res, vbat, duty, rms); break;
   }
   cnt = 0;
-  power();
 }
 
 void printstate(int tmpbaud, float restmp, float vbatmp, float dutmp, float rmstmp) {
@@ -185,6 +183,7 @@ void watt(int mostmp, float dutmp, int fitmp) {
   while (digitalRead(fitmp) != 0 && licz < 10)
     licz = (millis() - czas) / 1000;
   analogWrite(mostmp, 0.0);
+  delay(100);
   if (licz >= 10) {
     while (digitalRead(fitmp) == 1) {}
     delay(2500);
@@ -198,6 +197,7 @@ void bypass(int mostmp, int fitmp) {
   while (digitalRead(fitmp) != 0 && licz < 10)
     licz = (millis() - czas) / 1000;
   analogWrite(mostmp, 0.0);
+  delay(100);
   if (licz >= 10) {
     while (digitalRead(fitmp) == 1) {};
     delay(2500);
@@ -243,18 +243,19 @@ float gainres(int ohmtmp, float wirerestmp) {
 //Shutdown
 void power() {
   attachInterrupt(2, poweron, HIGH);
-  set_sleep_mode(SLEEP_MODE_IDLE);
-  sleep_enable();
-  sleep_mode();
-  while (on == false && digitalRead(2) == LOW) {}
-  if (on == false) poweron();
-  sleep_disable();
+  do {
+    analogWrite(bcg, 0);
+    set_sleep_mode(SLEEP_MODE_IDLE);
+    sleep_enable();
+    sleep_mode();
+    long int teemp = millis();
+    while (digitalRead(2) == HIGH) {
+      if ((millis() - teemp) >= 2500) on = true;
+    }
+    if (on == true) analogWrite(bcg, 64);
+  } while (on == false);
 }
 //Apparently this little guy works well
 void poweron() {
   detachInterrupt(2);
-  long int teemp = millis();
-  while (digitalRead(2) == HIGH) {}
-  if ((millis() - teemp) >= 3000) on = true;
-  power();
 }
