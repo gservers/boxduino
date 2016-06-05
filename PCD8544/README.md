@@ -24,14 +24,14 @@ For a Nokia 3310 display the connections would be the following:
 
 Display Pin       | Arduino Pin
 ------------------|------------
-Pin 1             | +3.3V Pin
-Pin 2 (SCLK)      | Digital Pin 3
-Pin 3 (SDIN/MOSI) | Digital Pin 4
-Pin 4 (D/C)       | Digital Pin 5
-Pin 5 (SCE)       | Digital Pin 7
-Pin 6             | Ground Pin
-Pin 7             | 10uF capacitor to Ground Pin
-Pin 8 (RST)       | Digital Pin 6
+VCC               | +3.3V Pin
+SCLK              | Digital Pin 3
+SDIN/MOSI         | Digital Pin 4
+D/C               | Digital Pin 5
+SCE               | Digital Pin 7
+GND               | Ground Pin
+Backlight         | 10uF capacitor to Ground Pin
+RST               | Digital Pin 8
 
 For this display model, "Pin 1" is the leftmost pin when facing the back of the display with the connector on top.
 
@@ -56,3 +56,5 @@ Custom Symbols
 The library allows the use of custom bitmap symbols (5x8), defined by an array of five bytes.
 To make it easy to create custom symbols, there's a graphical glyph editor
 [available online](http://cloud.carlos-rodrigues.com/projects/pcd8544/).
+
+All credit for this lib goes to: Carlos Rodrigues <cefrodrigues@gmail.com>
