@@ -15,10 +15,11 @@
 //https://github.com/stevecooley/beatseqr-software/tree/master/arduino_code/beatseqr_arduino_firmware_4_experimental
 #include <avr/sleep.h>
 #include <avr/power.h>
+#include "PCD8544/PCD8544.h"
+static PCD8544 lcd;
 bool on = true; //Check if powered
 const int mosfet = 6; //PWM output to N-FET
 ClickButton fire(2, HIGH); //Define fire button as object
-const int bcg = 3; //PCD8544 backlight
 const int pot = A0; //Potentiometer
 const int volt = A1; // Vin voltmeter
 const int ohmmet = A2; //Ohmmeter
@@ -28,7 +29,7 @@ const int baud = 9600; //Serial baudrate
 
 const float r1 = 1000000.0; //R1 of Vin voltmeter
 const float r2 = 100000.0; //R2 Vin voltmeter
-const float wireres = 0.21; //Resistance of wires. Breadboard only.
+const float wireres = 0.21; //Resistance of wires. For ohmmeter calibration.
 const float vin = 8.4; //Max. supply voltage
 const float vbord = 6; //Max. discharge voltage
 
@@ -44,81 +45,74 @@ float vbat = 0; //Vin voltage
 float cbat = 0; //Baterry %
 float res = 0; //Resistance
 
-byte full[8] = { //Saving them, may be useful later
-  B00000,
-  B01110,
-  B11111,
-  B11111,
-  B11111,
-  B11111,
-  B11111,
-  B00000,
+static const byte full[] = {
+  B11111000,
+  B11111100,
+  B11111100,
+  B11111100,
+  B11111000,
 };
-byte hi[8] = {
-  B00000,
-  B01110,
-  B10001,
-  B11111,
-  B11111,
-  B11111,
-  B11111,
-  B00000,
+static const byte hi[] = {
+  B11111000,
+  B11110100,
+  B11110100,
+  B11110100,
+  B11111000,
 };
-byte med[8] = {
-  B00000,
-  B01110,
-  B10001,
-  B10001,
-  B11111,
-  B11111,
-  B11111,
-  B00000,
+static const byte med[] = {
+  B11111000,
+  B11100100,
+  B11100100,
+  B11100100,
+  B11111000,
 };
-byte low[8] = {
-  B00000,
-  B01110,
-  B10001,
-  B10001,
-  B10001,
-  B11111,
-  B11111,
-  B00000,
+static const byte low[] = {
+  B11111000,
+  B11000100,
+  B11000100,
+  B11000100,
+  B11111000,
 };
-byte empty[8] = {
-  B00000,
-  B01110,
-  B11001,
-  B10101,
-  B10101,
-  B10011,
-  B11111,
-  B00000,
+static const byte empty[] = {
+  B11111000,
+  B10001100,
+  B10110100,
+  B11000100,
+  B11111000,
 };
-byte ohm[8] = {
-  B00000,
-  B00000,
-  B00000,
-  B01110,
-  B10001,
-  B10001,
-  B01010,
-  B11011,
+static const byte ohm[] = {
+  B10110000,
+  B11001000,
+  B00001000,
+  B11001000,
+  B10110000,
 };
 void setup() {
-  Serial.begin(9600); //Just for debug
   pinMode(pot, INPUT);
   pinMode(volt, INPUT);
   pinMode(2, INPUT);
   pinMode(mosfet, OUTPUT);
   pinMode(ohmmet, INPUT);
-  pinMode(bcg, OUTPUT);
   //lcd.createChar(0, full);
   //lcd.createChar(1, hi);
   //lcd.createChar(2, med);
   //lcd.createChar(3, low);
   //lcd.createChar(4, empty);
   //lcd.createChar(5, ohm);
-  analogWrite(bcg, 48); //Not nescessary
+  lcd.begin(84, 48);
+  lcd.createChar(0, ohm);
+  lcd.createChar(1, full);
+  lcd.createChar(2, hi);
+  lcd.createChar(3, med);
+  lcd.createChar(4, low);
+  lcd.createChar(5, empty);
+  lcd.setCursor(0, 0);
+  lcd.write(0);
+  lcd.write(1);
+  lcd.write(2);
+  lcd.write(3);
+  lcd.write(4);
+  lcd.write(5);
   fire.debounceTime = 30;
   fire.multiclickTime = 300;
   fire.longClickTime = 500;
@@ -147,6 +141,7 @@ void loop() {
 
 void printstate(int tmpbaud, float restmp, float vbatmp, float dutmp, float rmstmp, int modtmp) {
   //Serial.begin(tmpbaud);
+  Serial.begin(tmpbaud);
   Serial.println("BOXduino service mode");
   Serial.print("Resistance: ");
   Serial.print(restmp, 2);
@@ -161,9 +156,10 @@ void printstate(int tmpbaud, float restmp, float vbatmp, float dutmp, float rmst
   Serial.print(rmstmp, 1);
   Serial.print("V\n");
   Serial.print("Digital duty cycle: ");
-  Serial.print(dutmp);
+  Serial.print(dutmp, 0);
   Serial.print("/255\n");
   Serial.println("-=-=-=-=-=-=-=-=-=-=-=-=-=-=-");
+  Serial.end();
 }
 //Saving this function for later use
 /*void updatebat(float tmpvbat) {
