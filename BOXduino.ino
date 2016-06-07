@@ -11,13 +11,14 @@
     TL;DR - You are responsible for this. Not me.
             Do not redistribute without my permission.
 */
-#include <ClickButton.h>
+#include "PCD8544/PCD8544.h"
+#include "ClickButton/ClickButton.h"
 //https://github.com/stevecooley/beatseqr-software/tree/master/arduino_code/beatseqr_arduino_firmware_4_experimental
 #include <avr/sleep.h>
 #include <avr/power.h>
-#include "PCD8544/PCD8544.h"
 static PCD8544 lcd;
 bool on = true; //Check if powered
+bool inv = false; //Screen inverted
 const int mosfet = 6; //PWM output to N-FET
 ClickButton fire(2, HIGH); //Define fire button as object
 const int pot = A0; //Potentiometer
@@ -29,7 +30,7 @@ const int baud = 9600; //Serial baudrate
 
 const float r1 = 1000000.0; //R1 of Vin voltmeter
 const float r2 = 100000.0; //R2 Vin voltmeter
-const float wireres = 0.21; //Resistance of wires. For ohmmeter calibration.
+const float wireres = 0.5; //Resistance of wires. For ohmmeter calibration.
 const float vin = 8.4; //Max. supply voltage
 const float vbord = 6; //Max. discharge voltage
 
@@ -45,47 +46,23 @@ float vbat = 0; //Vin voltage
 float cbat = 0; //Baterry %
 float res = 0; //Resistance
 
-static const byte full[] = {
-  B11111000,
-  B11111100,
-  B11111100,
-  B11111100,
-  B11111000,
+const unsigned char full[] = {
+  0xFE, 0xFF, 0xFF, 0xFF, 0xFE
 };
-static const byte hi[] = {
-  B11111000,
-  B11110100,
-  B11110100,
-  B11110100,
-  B11111000,
+const unsigned char hi[] = {
+  0xFE, 0xFD, 0xFD, 0xFD, 0xFE
 };
-static const byte med[] = {
-  B11111000,
-  B11100100,
-  B11100100,
-  B11100100,
-  B11111000,
+const unsigned char med[] = {
+  0xFE, 0xF1, 0xF1, 0xF1, 0xFE
 };
-static const byte low[] = {
-  B11111000,
-  B11000100,
-  B11000100,
-  B11000100,
-  B11111000,
+const unsigned char low[] = {
+  0xFE, 0xC1, 0xC1, 0xC1, 0xFE
 };
-static const byte empty[] = {
-  B11111000,
-  B10001100,
-  B10110100,
-  B11000100,
-  B11111000,
+const unsigned char empty[] = {
+  0xFE, 0x87, 0x99, 0xE1, 0xFE
 };
-static const byte ohm[] = {
-  B10110000,
-  B11001000,
-  B00001000,
-  B11001000,
-  B10110000,
+const unsigned char ohm[] = {
+  0x58, 0x64, 0x04, 0x64, 0x58
 };
 void setup() {
   pinMode(pot, INPUT);
@@ -106,13 +83,12 @@ void setup() {
   lcd.createChar(3, med);
   lcd.createChar(4, low);
   lcd.createChar(5, empty);
-  lcd.setCursor(0, 0);
-  lcd.write(0);
-  lcd.write(1);
-  lcd.write(2);
-  lcd.write(3);
-  lcd.write(4);
-  lcd.write(5);
+  /*lcd.write(0);
+    lcd.write(1);
+    lcd.write(2);
+    lcd.write(3);
+    lcd.write(4);
+    lcd.write(5);*/
   fire.debounceTime = 30;
   fire.multiclickTime = 300;
   fire.longClickTime = 500;
@@ -124,6 +100,7 @@ void loop() {
   res = gainres(ohmmet, wireres);
   vbat = gainvbat(volt, r1, r2);
   fire.Update();
+  printstate(res, vbat, duty, rms, mode);
   cnt = fire.clicks;
   switch (cnt) {
     case -1: if (mode == 0) watt(mosfet, duty, 2);
@@ -133,13 +110,50 @@ void loop() {
     case 3: if (mode == 1) mode = 0;
       else if (mode == 0) mode = 1;
       break;
+    case 4: inv = !inv; lcd.setInverse(inv); break;
     case 5: on = false; power(); break;
-    case 6: printstate(baud, res, vbat, duty, rms, mode); break;
+    case 6: serv(baud, res, vbat, duty, rms, mode); break;
   }
   cnt = 0;
 }
 
-void printstate(int tmpbaud, float restmp, float vbatmp, float dutmp, float rmstmp, int modtmp) {
+void printstate(float restmp, float vbatmp, float dutmp, float rmstmp, int modtmp) {
+  lcd.setCursor(0, 0);
+  lcd.println("   BOXduino");
+  lcd.setCursor(0, 1);
+  if (modtmp == 0) lcd.println("Regulated mode");
+  if (modtmp == 1) lcd.println(" Bypass mode! ");
+  lcd.setCursor(0, 2);
+  lcd.clearLine();
+  lcd.print("Watts: ");
+  float watts = 0;
+  if (modtmp == 0) watts = (rmstmp * rmstmp) / restmp; //P=U^2/R
+  if (modtmp == 1) watts = (vbatmp * vbatmp) / restmp;
+  lcd.print(watts, 0);
+  lcd.setCursor(0, 3);
+  lcd.print("Coil: ");
+  lcd.print(restmp, 2);
+  lcd.write(0);
+  /*Serial.print("Supply voltage: ");
+    Serial.print(vbatmp, 1);
+    Serial.print("V\n");
+    }
+    //Saving this function for later use
+    /*void updatebat(float tmpvbat) {
+    float cbat = ((tmpvbat - vbord) * 100) / vin; //wypisanie na ekranie
+    if (cbat < 0) cbat = 0;
+    if (cbat == 100) lcd.setCursor(10, 1);
+    if (cbat < 100 && cbat >= 10) lcd.setCursor(11, 1);
+    if (cbat < 10) lcd.setCursor(12, 1);
+    if (cbat <= 100 && cbat >= 95) lcd.write(byte(0));
+    if (cbat < 95 && cbat >= 70) lcd.write(byte(1));
+    if (cbat < 70 && cbat >= 40) lcd.write(byte(2));
+    if (cbat < 40 && cbat >= 15) lcd.write(byte(3));
+    if (cbat < 15) lcd.write(byte(4));
+    }*/
+}
+
+void serv(int tmpbaud, float restmp, float vbatmp, float dutmp, float rmstmp, int modtmp) {
   //Serial.begin(tmpbaud);
   Serial.begin(tmpbaud);
   Serial.println("BOXduino service mode");
@@ -150,8 +164,8 @@ void printstate(int tmpbaud, float restmp, float vbatmp, float dutmp, float rmst
   Serial.print(vbatmp, 1);
   Serial.print("V\n");
   Serial.print("Mode: ");
-  if(mode == 0) Serial.print("Regulated\n");
-  if(mode == 1) Serial.print("Bypass\n");
+  if (mode == 0) Serial.print("Regulated\n");
+  if (mode == 1) Serial.print("Bypass\n");
   Serial.print("RMS voltage: ");
   Serial.print(rmstmp, 1);
   Serial.print("V\n");
@@ -161,19 +175,7 @@ void printstate(int tmpbaud, float restmp, float vbatmp, float dutmp, float rmst
   Serial.println("-=-=-=-=-=-=-=-=-=-=-=-=-=-=-");
   Serial.end();
 }
-//Saving this function for later use
-/*void updatebat(float tmpvbat) {
-  float cbat = ((tmpvbat - vbord) * 100) / vin; //wypisanie na ekranie
-  if (cbat < 0) cbat = 0;
-  if (cbat == 100) lcd.setCursor(10, 1);
-  if (cbat < 100 && cbat >= 10) lcd.setCursor(11, 1);
-  if (cbat < 10) lcd.setCursor(12, 1);
-  if (cbat <= 100 && cbat >= 95) lcd.write(byte(0));
-  if (cbat < 95 && cbat >= 70) lcd.write(byte(1));
-  if (cbat < 70 && cbat >= 40) lcd.write(byte(2));
-  if (cbat < 40 && cbat >= 15) lcd.write(byte(3));
-  if (cbat < 15) lcd.write(byte(4));
-  }*/
+
 //MOSFET port, duty cycle, fire button port
 void watt(int mostmp, float dutmp, int fitmp) {
   float czas = millis();
@@ -202,13 +204,6 @@ void bypass(int mostmp, int fitmp) {
     delay(2500);
   }
 }
-//Vin voltmeter port, R1, R2
-float gainvbat(int batmp, float rtmp1, float rtmp2) {
-  float value = analogRead(batmp);
-  float vout = (value * 5.0) / 1024.0;
-  float vbatmp = vout / (rtmp2 / (rtmp1 + rtmp2));
-  return (vbatmp);
-}
 //Potentiometer port
 int gainduty(float potmp) {
   float dutmp = analogRead(potmp);
@@ -217,6 +212,14 @@ int gainduty(float potmp) {
   if (dutmp >= 256) dutmp = 255;
   return (dutmp);
 }
+//Vin voltmeter port, R1, R2
+float gainvbat(int batmp, float rtmp1, float rtmp2) {
+  float value = analogRead(batmp);
+  float vout = (value * 5.0) / 1024.0;
+  float vbatmp = vout / (rtmp2 / (rtmp1 + rtmp2));
+  return (vbatmp);
+}
+
 //Vin voltage, duty cycle
 float gainrms(float vbatmp, float dutmp) {
   float statmp = (dutmp * 100) / 255; //Stan w %
@@ -230,20 +233,20 @@ float gainres(int ohmtmp, float wirerestmp) {
   for (int a = 0; a < 5; a++) {
     val = analogRead(ohmtmp);
     volts = (val * 5) / 1023.0;
-    resistance = volts / 0.125; //Change 0.125 if needed
-    resistance -= wirerestmp;
+    resistance = volts / 0.125; //Change 0.125 if needed (1.25V/R1)
     tmp += resistance;
   }
   resistance = tmp / 5;
+  //resistance -= wirerestmp;
   if (resistance > 9.99) resistance = 9.99;
-  if (resistance < 0) resistance = 0;
+  if (resistance < 0) resistance = 0.00;
   return (resistance);
 }
 //Shutdown
 void power() {
   attachInterrupt(2, poweron, HIGH);
   do {
-    analogWrite(bcg, 0);
+    lcd.stop();
     set_sleep_mode(SLEEP_MODE_IDLE);
     sleep_enable();
     sleep_mode();
@@ -251,10 +254,10 @@ void power() {
     while (digitalRead(2) == HIGH) {
       if ((millis() - teemp) >= 2500) on = true;
     }
-    if (on == true) analogWrite(bcg, 64);
+    if (on == true) lcd.setPower(true);
   } while (on == false);
+  detachInterrupt(2);
 }
-//Apparently this little guy works well
 void poweron() {
   detachInterrupt(2);
 }
