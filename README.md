@@ -8,16 +8,19 @@ Currently working:
   * Read input voltage
   * Very simple control
   * Battery indicator and ohmmeter (pretty accurate)
-  * (Almost) perfect scheme in Fritzing
+  * (Almost) perfect scheme in Fritzing  
+  * Nice display!  
 
-Cons:
-  * No display implemented (yet)
-  * Power consumption > 100mA (caused by ohmmeter which is always on)  
+Currently unavaiable:
+  * Power saving: now in idle mode it's taking 150mAh which is really bad for me (ohmmeter circuit)  
+  * Backlight
 
 Controls:  
 * Fire: Hold the button
-* Switch VV / Bypass: 3x fast click  
-* Power off: 5x fast click  
-* Power on: Hold the button.   
+* Switch VV / Bypass: 3x click  
+* Night mode (inverting display): 4x click
+* Power off: 5x click  
+* Power on: Hold the button.  
+* Serial debug: 6x click
   
-##Check Issues for ToDo list and feel free to add new suggestions!
+Check Issues for ToDo list and feel free to add new suggestions!  
