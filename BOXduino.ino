@@ -1,13 +1,11 @@
 /*  Arduino controlled box mod by Marek Ledworowski.
     If you want to use my code for your own box mod,
     please contact me first at fotelpl@gmail.com
-
     I'm not responsible for dead MCU's, burnt PC's,
     smoked cigarettes or electrocutions.
     This sketch is in early dev stage, so there is no
     warranty it won't drink all your milk and steal
     your car.
-
     TL;DR - You are responsible for this. Not me.
             Do not redistribute without my permission.
 */
@@ -100,12 +98,11 @@ void setup() {
   lcd.setCursor(0, 0);
   res = gainres(ohmmet, wireres);
   vbat = gainvbat(volt, r1, r2);
-  if (mode == 0) {
-    duty = gainduty(pot);
-    rms = gainrms(vbat, duty);
-  } else if (mode == 1) {
-    duty = 255;
-    rms = vbat;
+  switch (mode) {
+    case 0:
+      duty = gainduty(pot); rms = gainrms(vbat, duty); break;
+    case 1:
+      duty = 255; rms = vbat; break;
   }
   printstate(res, vbat, duty, rms, mode, puffs, pufftime);
 }
@@ -113,21 +110,22 @@ void loop() {
   //fire.Update();
   res = gainres(ohmmet, wireres);
   vbat = gainvbat(volt, r1, r2);
-  if (mode == 0) {
-    duty = gainduty(pot);
-    rms = gainrms(vbat, duty);
-  } else if (mode == 1) {
-    duty = 255;
-    rms = vbat;
+  //fire.Update();
+  switch (mode) {
+    case 0:
+      duty = gainduty(pot); rms = gainrms(vbat, duty); break;
+    case 1:
+      duty = 255; rms = vbat; break;
   }
-
   fire.Update();
   cnt = fire.clicks;
   if (cnt != 0) {
-    if (cnt == 6) serv(baud, res, vbat, duty, rms, mode, puffs, pufftime);
-    if (cnt == 5) {
-      on = false;
-      power();
+    if (cnt == -1 && digitalRead(2) == 1) go(mosfet, duty, 2);
+    if (cnt == 3) {
+      switch (mode) {
+        case 1: mode = 0; break;
+        case 0: mode = 1; break;
+      }
     }
     if (cnt == 4) {
       switch (inv) {
@@ -136,16 +134,13 @@ void loop() {
       }
       lcd.setInverse(inv);
     }
-    if (cnt == 3) {
-      switch (mode) {
-        case 1: mode = 0; break;
-        case 0: mode = 1; break;
-      }
+    if (cnt == 5) {
+      on = false;
+      power();
     }
-    if (cnt == -1 && fire.depressed == 1) go(mosfet, duty, 2);
-    cnt = 0;
+    if (cnt == 6) serv(baud, res, vbat, duty, rms, mode, puffs, pufftime);
+    printstate(res, vbat, duty, rms, mode, puffs, pufftime);
   }
-  printstate(res, vbat, duty, rms, mode, puffs, pufftime);
 }
 
 void printstate(float restmp, float vbatmp, float dutmp, float rmstmp, int modtmp, int pufftmp, float pufftmp2) {
