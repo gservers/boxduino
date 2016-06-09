@@ -19,6 +19,8 @@
 static PCD8544 lcd;
 bool on = true; //Check if powered
 bool inv = false; //Screen inverted
+bool puvol = false; //Decide if you want to see volts or puffs
+//False == puffs / time
 const int mosfet = 6; //PWM output to N-FET
 ClickButton fire(2, HIGH); //Define fire button as object
 const int pot = A0; //Potentiometer
@@ -38,7 +40,7 @@ int mode = 0; //0 - VV/VW, 1 - BYPASS
 int cnt = 0; //How many times button was pressed
 long int tempnow; //First click
 long int tempend; //Last click
-int puffs = 0; //Total puffs
+unsigned int puffs = 0; //Total puffs
 float pufftime = 0; //Total puff time
 
 float state = 0; //% of potentiometer scale
@@ -80,7 +82,6 @@ void setup() {
   pinMode(2, INPUT);
   pinMode(mosfet, OUTPUT);
   pinMode(ohmmet, INPUT);
-
   lcd.begin();
   lcd.createChar(0, ohm);
   lcd.createChar(1, full);
@@ -88,44 +89,62 @@ void setup() {
   lcd.createChar(3, med);
   lcd.createChar(4, low);
   lcd.createChar(5, empty);
-  fire.debounceTime = 50;
-  fire.multiclickTime = 500;
-  fire.longClickTime = 300;
+  fire.debounceTime = 10;
+  fire.multiclickTime = 400;
+  fire.longClickTime = 200;
   on = true;
   lcd.clear();
   lcd.drawBitmap(splashscreen, 84, 48);
   delay(2500);
   lcd.clear();
   lcd.setCursor(0, 0);
-}
-void loop() {
-  fire.Update();
-  cnt = fire.clicks;
-  duty = gainduty(pot); //This needs to be refreshed every time
-  rms = gainrms(vbat, duty);
   res = gainres(ohmmet, wireres);
   vbat = gainvbat(volt, r1, r2);
-  if (cnt == 6) serv(baud, res, vbat, duty, rms, mode, puffs, pufftime);
-  if (cnt == 5) {
-    on = false;
-    power();
+  if (mode == 0) {
+    duty = gainduty(pot);
+    rms = gainrms(vbat, duty);
+  } else if (mode == 1) {
+    duty = 255;
+    rms = vbat;
   }
-  if (cnt == 4) {
-    switch (inv) {
-      case 1: inv = 0; break;
-      case 0: inv = 1; break;
+  printstate(res, vbat, duty, rms, mode, puffs, pufftime);
+}
+void loop() {
+  //fire.Update();
+  res = gainres(ohmmet, wireres);
+  vbat = gainvbat(volt, r1, r2);
+  if (mode == 0) {
+    duty = gainduty(pot);
+    rms = gainrms(vbat, duty);
+  } else if (mode == 1) {
+    duty = 255;
+    rms = vbat;
+  }
+
+  fire.Update();
+  cnt = fire.clicks;
+  if (cnt != 0) {
+    if (cnt == 6) serv(baud, res, vbat, duty, rms, mode, puffs, pufftime);
+    if (cnt == 5) {
+      on = false;
+      power();
     }
-    lcd.setInverse(inv);
-  }
-  if (cnt == 3) {
-    switch (mode) {
-      case 1: mode = 0; break;
-      case 0: mode = 1; break;
+    if (cnt == 4) {
+      switch (inv) {
+        case 1: inv = 0; break;
+        case 0: inv = 1; break;
+      }
+      lcd.setInverse(inv);
     }
+    if (cnt == 3) {
+      switch (mode) {
+        case 1: mode = 0; break;
+        case 0: mode = 1; break;
+      }
+    }
+    if (cnt == -1 && fire.depressed == 1) go(mosfet, duty, 2);
+    cnt = 0;
   }
-  if (cnt == -1 && mode == 0)watt(mosfet, duty, 2);
-  if (cnt == -1 && mode == 1)bypass(mosfet, 2);
-  cnt = 0;
   printstate(res, vbat, duty, rms, mode, puffs, pufftime);
 }
 
@@ -140,8 +159,7 @@ void printstate(float restmp, float vbatmp, float dutmp, float rmstmp, int modtm
   lcd.setCursor(0, 2);
   lcd.print("Watts: ");
   float watts = 0;
-  if (modtmp == 0) watts = (rmstmp * rmstmp) / restmp; //P=U^2/R
-  if (modtmp == 1) watts = (vbatmp * vbatmp) / restmp;
+  watts = (rmstmp * rmstmp) / restmp; //P=U^2/R
   lcd.print(watts, 0);
   lcd.print("W  ");
   lcd.setCursor(0, 3);
@@ -149,18 +167,23 @@ void printstate(float restmp, float vbatmp, float dutmp, float rmstmp, int modtm
   lcd.print(restmp, 2);
   lcd.write(0);
   lcd.setCursor(0, 4);
+  lcd.print("Voltage: ");
+  lcd.print(rmstmp, 2);
+  lcd.print("V");
+  lcd.setCursor(0, 5);
+  lcd.print(pufftmp);
+  lcd.print("/");
+  lcd.print(pufftmp2, 2);
+  lcd.print(" ");
   lcd.print(cbat, 0);
-  lcd.print("%  ");
-  lcd.setCursor(79, 4);
+  lcd.print("%");
+  lcd.setCursor(79, 5);
   if (cbat <= 100 && cbat >= 95) lcd.write(1);
   if (cbat < 95 && cbat >= 70) lcd.write(2);
   if (cbat < 70 && cbat >= 40) lcd.write(3);
   if (cbat < 40 && cbat >= 15) lcd.write(4);
   if (cbat < 15) lcd.write(5);
-  lcd.setCursor(0, 5);
-  lcd.print(pufftmp);
-  lcd.print(" / ");
-  lcd.print(pufftmp2, 2);
+
 }
 void serv(int tmpbaud, float restmp, float vbatmp, float dutmp, float rmstmp, int modtmp, int pufftmp, float pufftmp2) {
   Serial.begin(tmpbaud);
@@ -190,64 +213,40 @@ void serv(int tmpbaud, float restmp, float vbatmp, float dutmp, float rmstmp, in
 }
 
 //MOSFET port, duty cycle, fire button port
-void watt(int mostmp, float dutmp, int fitmp) {
+void go(int mostmp, float dutmp, int fitmp) {
   float czas = millis();
   float licz = 0;
   analogWrite(mostmp, dutmp);
   lcd.setCursor(0, 4);
   lcd.clearLine();
-  while (digitalRead(fitmp) != 0 && licz <= 10) {
+  while (digitalRead(fitmp) != 0 && licz < 9.97) { //It's not rocket science
     licz = (millis() - czas) / 1000;
-    lcd.setCursor(0, 4);
+    lcd.setCursor(33, 4);
     lcd.print(licz, 2);
   }
   analogWrite(mostmp, 0);
   pufftime += licz;
   delay(200);
-  if (licz >= 10) {
+  if (licz >= 9.97) {
+    lcd.setCursor(33, 4);
+    lcd.print("10.00");
     lcd.clearLine();
     lcd.print("  Time's up!  ");
     while (digitalRead(fitmp) == 1) {}
     delay(2500);
   }
   lcd.clearLine();
-}
-//MOSFET port, fire button port
-void bypass(int mostmp, int fitmp) {
-  float czas = millis();
-  float licz = 0;
-  lcd.setCursor(0, 4);
-  lcd.clearLine();
-  analogWrite(mostmp, 1023);
-  while (digitalRead(fitmp) != 0 && licz < 10) {
-    licz = (millis() - czas) / 1000;
-    lcd.setCursor(0, 4);
-    lcd.print(licz, 2);
-  }
-  analogWrite(mostmp, 0);
-  pufftime += licz;
-  delay(200);
-  if (licz >= 10) {
-    lcd.clearLine();
-    lcd.print("  Time's up!  ");
-    while (digitalRead(fitmp) == 1) {}
-    delay(2500);
-  }
-  lcd.clearLine();
+  puffs = puffs + 1;
 }
 //Potentiometer port
 int gainduty(float potmp) {
-  float dutmp = analogRead(potmp);
-  dutmp /= 4;
-  dutmp = round(dutmp);
+  float dutmp = round((analogRead(potmp)) / 4);
   if (dutmp >= 256) dutmp = 255;
   return (dutmp);
 }
 //Vin voltmeter port, R1, R2
 float gainvbat(int batmp, float rtmp1, float rtmp2) {
-  float value = analogRead(batmp);
-  float vout = (value * 5.0) / 1024.0;
-  float vbatmp = vout / (rtmp2 / (rtmp1 + rtmp2));
+  float vbatmp = ((analogRead(batmp) * 5.0) / 1024.0) / (rtmp2 / (rtmp1 + rtmp2));
   return (vbatmp);
 }
 
@@ -262,10 +261,7 @@ float gainrms(float vbatmp, float dutmp) {
 float gainres(int ohmtmp, float wirerestmp) {
   float tmp = 0, val, volts, resistance;
   for (int a = 0; a < 5; a++) {
-    val = analogRead(ohmtmp);
-    volts = (val * 5) / 1023.0;
-    resistance = volts / 0.125; //Change 0.125 if needed (1.25V/R1)
-    tmp += resistance;
+    tmp += ((analogRead(ohmtmp) * 5) / 1023.0) / 0.125; //Change 0.125 if needed (1.25V/R1)
   }
   resistance = tmp / 5;
   //resistance -= wirerestmp;
