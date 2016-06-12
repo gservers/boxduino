@@ -17,14 +17,15 @@
 static PCD8544 lcd;
 bool on = true; //Check if powered
 bool inv = false; //Screen inverted
-bool puvol = false; //Decide if you want to see volts or puffs
-//False == puffs / time
+bool lock = false; //Autofire
 const int mosfet = 6; //PWM output to N-FET
 ClickButton fire(2, HIGH); //Define fire button as object
 const int pot = A0; //Potentiometer
 const int volt = A1; // Vin voltmeter
 const int bouncedelay = 50; //Short press
 const int holddelay = 100; //Long press
+const int timeout = 10; //Fire limit
+const int dim = 10; //Disable display limit
 const int baud = 9600; //Serial baudrate
 
 const float r1 = 1000000.0; //R1 of Vin voltmeter
@@ -36,6 +37,7 @@ int mode = 0; //0 - VV/VW, 1 - BYPASS
 int cnt = 0; //How many times button was pressed
 long int tempnow; //First click
 long int tempend; //Last click
+long int lastpress = 0; //Last button press
 unsigned int puffs = 0; //Total puffs
 float pufftime = 0; //Total puff time
 
@@ -100,11 +102,12 @@ void setup() {
       duty = 255; rms = vbat; break;
   }
   printstate(vbat, duty, rms, mode, puffs, pufftime);
+  lastpress = millis();
 }
+
 void loop() {
   fire.Update();
   vbat = gainvbat(volt, r1, r2);
-  //fire.Update();
   switch (mode) {
     case 0:
       duty = gainduty(pot); rms = gainrms(vbat, duty); break;
@@ -113,45 +116,42 @@ void loop() {
   }
   fire.Update();
   cnt = fire.clicks;
-  /*if (cnt != 0) {
-    if (cnt == -1 && digitalRead(2) == 1) go(mosfet, duty, 2);
-    if (cnt == 3) {
-      switch (mode) {
-        case 1: mode = 0; break;
-        case 0: mode = 1; break;
-      }
-    }
-    if (cnt == 4) {
-      switch (inv) {
-        case 1: inv = 0; break;
-        case 0: inv = 1; break;
-      }
-      lcd.setInverse(inv);
-    }
-    if (cnt == 5) {
-      on = false;
-      power();
-    }
-    if (cnt == 6) serv(baud, vbat, duty, rms, mode, puffs, pufftime);
-    printstate(vbat, duty, rms, mode, puffs, pufftime);
-    }*/
+  if (cnt != 0) lastpress = millis();
   switch (cnt) {
     //default: printstate(vbat, duty, rms, mode, puffs, pufftime); break;
     case -1:
-      if (digitalRead(2) == 1) go(mosfet, duty, 2);
-      printstate(vbat, duty, rms, mode, puffs, pufftime); break;
+      if (digitalRead(2) == 1 && lock == false) {
+        go(mosfet, duty, 2);
+        printstate(vbat, duty, rms, mode, puffs, pufftime);
+      } break;
     case 1:
+      if (lock == true) lcd.begin();
+      lock = false;
       printstate(vbat, duty, rms, mode, puffs, pufftime); break;
     case 3:
-      if (mode == 1) mode = 0; else mode = 1;
+      if (mode == 1) {
+        mode = 0;
+        duty = gainduty(pot);
+        rms = gainrms(vbat, duty);
+      } else {
+        mode = 1;
+        duty = 255;
+        rms = vbat;
+      }
       printstate(vbat, duty, rms, mode, puffs, pufftime); break;
     case 4:
       if (inv == 1) inv = 0; else inv = 1;
       lcd.setInverse(inv); break;
     case 5:
-      on = false; power(); break;
+      on = false; power();
+      printstate(vbat, duty, rms, mode, puffs, pufftime); break;
     case 6:
       serv(baud, vbat, duty, rms, mode, puffs, pufftime); break;
+  }
+  if (cnt != 0) lastpress = millis();
+  if ((millis() - lastpress) >= (dim*1000) && cnt == 0 && lock == false) {
+    lcd.stop();
+    lock = true;
   }
 }
 
@@ -215,7 +215,7 @@ void go(int mostmp, float dutmp, int fitmp) {
   analogWrite(mostmp, dutmp);
   lcd.setCursor(0, 4);
   lcd.clearLine();
-  while (digitalRead(fitmp) != 0 && licz < 10.01) { //It's not rocket science
+  while (digitalRead(fitmp) != 0 && licz < (timeout+0.01)) { //It's not rocket science
     licz = (millis() - czas) / 1000;
     lcd.setCursor(33, 4);
     lcd.print(licz, 2);
@@ -255,22 +255,21 @@ float gainrms(float vbatmp, float dutmp) {
 }
 //Shutdown
 void power() {
-  attachInterrupt(2, poweron, HIGH);
-  lcd.stop();
-  set_sleep_mode(SLEEP_MODE_IDLE);
-  sleep_enable();
-  sleep_mode();
-  /*long int teemp = millis();
+  do {
+    attachInterrupt(2, poweron, HIGH);
+    lcd.stop();
+    set_sleep_mode(SLEEP_MODE_IDLE);
+    sleep_enable();
+    sleep_mode();
+    sleep_disable();
+    long int teemp = millis();
     while (digitalRead(2) == HIGH) {
-    if ((millis() - teemp) >= 2500) on = true;
-    }*/
-  detachInterrupt(2);
-  delay(10);
-  fire.Update();
-  int tmp = fire.clicks;
-  if (tmp == 5) on = true;
-  if (on == true) lcd.setPower(true);
+      if ((millis() - teemp) >= 2500) on = true;
+    }
+    detachInterrupt(2);
+    if (on == true) lcd.setPower(true);
+  } while (on == false);
 }
 void poweron() {
-  delay(5);
+  detachInterrupt(2);
 }
