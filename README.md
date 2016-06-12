@@ -1,13 +1,13 @@
-## BOXduino - the first Arduino powered e-cigarette!
+## BOXduino - the first Arduino powered e-cigarette!  
 
 Currently working:
-  * Sleep / Power on - makes BOXduino more powersaving!
-  * Firing - I don't need to explain this one
-  * Read input voltage - Watch battery level!
-  * Battery indicator (pretty accurate) - with awesome bettery graphics!
-  * Nice display! - Pretty fine and readable layout
-  * Screen dimming! - afer 10 seconds without any action the screen will be dimmed. 
-  * Standard control - see controls below
+  * Sleep / Power on - makes BOXduino more powersaving!  
+  * Firing - I don't need to explain this one  
+  * Read input voltage - Watch battery level!  
+  * Battery indicator (pretty accurate) - with awesome bettery graphics!  
+  * Nice display! - Pretty fine and readable layout  
+  * Screen dimming! - afer 10 seconds without any action the screen will be dimmed.  
+  * Standard control - see controls below  
 
 Currently unavaiable:
   * Ohmmeter
@@ -18,9 +18,9 @@ Controls:
 * Refresh everything: 1x click  
 * Fire: Hold the button  
 * Switch VV / Bypass: 3x click  
-* Night mode (inverting display): 4x click
+* Night mode (inverting display): 4x click  
 * Power off: 5x click  
 * Power on: Hold the button (while off)  
-* Serial debug: 6x click  
-* Wakeup the screen: 1x click
+* Serial debug: 6x click   
+* Wakeup the screen: 1x click  
 Check Issues for ToDo list and feel free to add new suggestions!  
