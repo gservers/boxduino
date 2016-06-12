@@ -3,13 +3,14 @@
 Using Arduino to take care about Your e-cig
 
 Currently working:
-  * Sleep / Power on
-  * Firing
-  * Read input voltage
-  * Very simple control
-  * Battery indicator (pretty accurate)
-  * (Almost) perfect scheme in Fritzing  
-  * Nice display!  
+  * Sleep / Power on - makes BOXduino more powersaving!
+  * Firing - I don't need to explain this one
+  * Read input voltage - Watch battery level!
+  * Battery indicator (pretty accurate) - with awesome bettery graphics!
+  * (Almost) perfect scheme in Fritzing, but still needs an update
+  * Nice display! - Pretty fine and readable layout
+  * Screen dimming! - afer 10 seconds without any action the screen will be dimmed. 
+  * Standard control - see controls below
 
 Currently unavaiable:
   * Ohmmeter
@@ -24,4 +25,5 @@ Controls:
 * Power off: 5x click  
 * Power on: Hold the button (while off)  
 * Serial debug: 6x click  
+* Wakeup the screen: 1x click
 Check Issues for ToDo list and feel free to add new suggestions!  
