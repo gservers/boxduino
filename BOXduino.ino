@@ -23,14 +23,12 @@ const int mosfet = 6; //PWM output to N-FET
 ClickButton fire(2, HIGH); //Define fire button as object
 const int pot = A0; //Potentiometer
 const int volt = A1; // Vin voltmeter
-const int ohmmet = A2; //Ohmmeter
 const int bouncedelay = 50; //Short press
 const int holddelay = 100; //Long press
 const int baud = 9600; //Serial baudrate
 
 const float r1 = 1000000.0; //R1 of Vin voltmeter
 const float r2 = 100000.0; //R2 Vin voltmeter
-const float wireres = 0.5; //Resistance of wires. For ohmmeter calibration.
 const float vin = 8.4; //Max. supply voltage
 const float vbord = 6; //Max. discharge voltage
 
@@ -46,7 +44,6 @@ float rms = 0;  //RMS voltage
 float duty = 0; //duty cycle (0-255)
 float vbat = 0; //Vin voltage
 float cbat = 0; //Baterry %
-float res = 0; //Resistance
 
 const unsigned char full[] = {
   0xFE, 0xFF, 0xFF, 0xFF, 0xFE
@@ -79,7 +76,6 @@ void setup() {
   pinMode(volt, INPUT);
   pinMode(2, INPUT);
   pinMode(mosfet, OUTPUT);
-  pinMode(ohmmet, INPUT);
   lcd.begin();
   lcd.createChar(0, ohm);
   lcd.createChar(1, full);
@@ -96,7 +92,6 @@ void setup() {
   delay(2500);
   lcd.clear();
   lcd.setCursor(0, 0);
-  res = gainres(ohmmet, wireres);
   vbat = gainvbat(volt, r1, r2);
   switch (mode) {
     case 0:
@@ -104,11 +99,10 @@ void setup() {
     case 1:
       duty = 255; rms = vbat; break;
   }
-  printstate(res, vbat, duty, rms, mode, puffs, pufftime);
+  printstate(vbat, duty, rms, mode, puffs, pufftime);
 }
 void loop() {
-  //fire.Update();
-  res = gainres(ohmmet, wireres);
+  fire.Update();
   vbat = gainvbat(volt, r1, r2);
   //fire.Update();
   switch (mode) {
@@ -119,7 +113,7 @@ void loop() {
   }
   fire.Update();
   cnt = fire.clicks;
-  if (cnt != 0) {
+  /*if (cnt != 0) {
     if (cnt == -1 && digitalRead(2) == 1) go(mosfet, duty, 2);
     if (cnt == 3) {
       switch (mode) {
@@ -138,12 +132,30 @@ void loop() {
       on = false;
       power();
     }
-    if (cnt == 6) serv(baud, res, vbat, duty, rms, mode, puffs, pufftime);
-    printstate(res, vbat, duty, rms, mode, puffs, pufftime);
+    if (cnt == 6) serv(baud, vbat, duty, rms, mode, puffs, pufftime);
+    printstate(vbat, duty, rms, mode, puffs, pufftime);
+    }*/
+  switch (cnt) {
+    //default: printstate(vbat, duty, rms, mode, puffs, pufftime); break;
+    case -1:
+      if (digitalRead(2) == 1) go(mosfet, duty, 2);
+      printstate(vbat, duty, rms, mode, puffs, pufftime); break;
+    case 1:
+      printstate(vbat, duty, rms, mode, puffs, pufftime); break;
+    case 3:
+      if (mode == 1) mode = 0; else mode = 1;
+      printstate(vbat, duty, rms, mode, puffs, pufftime); break;
+    case 4:
+      if (inv == 1) inv = 0; else inv = 1;
+      lcd.setInverse(inv); break;
+    case 5:
+      on = false; power(); break;
+    case 6:
+      serv(baud, vbat, duty, rms, mode, puffs, pufftime); break;
   }
 }
 
-void printstate(float restmp, float vbatmp, float dutmp, float rmstmp, int modtmp, int pufftmp, float pufftmp2) {
+void printstate(float vbatmp, float dutmp, float rmstmp, int modtmp, int pufftmp, float pufftmp2) {
   cbat = ((vbatmp - vbord) * 100);
   if (cbat < 0) cbat = 0;
   lcd.setCursor(0, 0);
@@ -152,24 +164,16 @@ void printstate(float restmp, float vbatmp, float dutmp, float rmstmp, int modtm
   if (modtmp == 0) lcd.print("Regulated mode");
   if (modtmp == 1) lcd.print(" Bypass mode! ");
   lcd.setCursor(0, 2);
-  lcd.print("Watts: ");
-  float watts = 0;
-  watts = (rmstmp * rmstmp) / restmp; //P=U^2/R
-  lcd.print(watts, 0);
-  lcd.print("W  ");
-  lcd.setCursor(0, 3);
-  lcd.print("Coil: ");
-  lcd.print(restmp, 2);
-  lcd.write(0);
-  lcd.setCursor(0, 4);
   lcd.print("Voltage: ");
   lcd.print(rmstmp, 2);
   lcd.print("V");
+  lcd.setCursor(0, 3);
+  lcd.print("Puffs: ");
+  lcd.println(pufftmp);
+  lcd.setCursor(0, 4);
+  lcd.print("PuffTime:");
+  lcd.println(pufftmp2, 2);
   lcd.setCursor(0, 5);
-  lcd.print(pufftmp);
-  lcd.print("/");
-  lcd.print(pufftmp2, 2);
-  lcd.print(" ");
   lcd.print(cbat, 0);
   lcd.print("%");
   lcd.setCursor(79, 5);
@@ -180,12 +184,9 @@ void printstate(float restmp, float vbatmp, float dutmp, float rmstmp, int modtm
   if (cbat < 15) lcd.write(5);
 
 }
-void serv(int tmpbaud, float restmp, float vbatmp, float dutmp, float rmstmp, int modtmp, int pufftmp, float pufftmp2) {
+void serv(int tmpbaud, float vbatmp, float dutmp, float rmstmp, int modtmp, int pufftmp, float pufftmp2) {
   Serial.begin(tmpbaud);
   Serial.println("BOXduino service mode");
-  Serial.print("Resistance: ");
-  Serial.print(restmp, 2);
-  Serial.print("ohm\n");
   Serial.print("Supply voltage: ");
   Serial.print(vbatmp, 1);
   Serial.print("V\n");
@@ -214,21 +215,22 @@ void go(int mostmp, float dutmp, int fitmp) {
   analogWrite(mostmp, dutmp);
   lcd.setCursor(0, 4);
   lcd.clearLine();
-  while (digitalRead(fitmp) != 0 && licz < 9.97) { //It's not rocket science
+  while (digitalRead(fitmp) != 0 && licz < 10.01) { //It's not rocket science
     licz = (millis() - czas) / 1000;
     lcd.setCursor(33, 4);
     lcd.print(licz, 2);
   }
   analogWrite(mostmp, 0);
   pufftime += licz;
-  delay(200);
-  if (licz >= 9.97) {
+  delay(50);
+  if (licz >= 10.00) {
     lcd.setCursor(33, 4);
     lcd.print("10.00");
     lcd.clearLine();
     lcd.print("  Time's up!  ");
     while (digitalRead(fitmp) == 1) {}
     delay(2500);
+    lcd.clearLine();
   }
   lcd.clearLine();
   puffs = puffs + 1;
@@ -251,35 +253,24 @@ float gainrms(float vbatmp, float dutmp) {
   float rmstmp = vbatmp * sqrt(statmp / 100); //RMS
   return (rmstmp);
 }
-//Ohmmeter port, resistance of connection wires
-//Average of 5 measurements to avoid too big values
-float gainres(int ohmtmp, float wirerestmp) {
-  float tmp = 0, val, volts, resistance;
-  for (int a = 0; a < 5; a++) {
-    tmp += ((analogRead(ohmtmp) * 5) / 1023.0) / 0.125; //Change 0.125 if needed (1.25V/R1)
-  }
-  resistance = tmp / 5;
-  //resistance -= wirerestmp;
-  if (resistance > 9.99) resistance = 9.99;
-  if (resistance < 0) resistance = 0.00;
-  return (resistance);
-}
 //Shutdown
 void power() {
   attachInterrupt(2, poweron, HIGH);
-  do {
-    lcd.stop();
-    set_sleep_mode(SLEEP_MODE_IDLE);
-    sleep_enable();
-    sleep_mode();
-    long int teemp = millis();
+  lcd.stop();
+  set_sleep_mode(SLEEP_MODE_IDLE);
+  sleep_enable();
+  sleep_mode();
+  /*long int teemp = millis();
     while (digitalRead(2) == HIGH) {
-      if ((millis() - teemp) >= 2500) on = true;
-    }
-    if (on == true) lcd.setPower(true);
-  } while (on == false);
+    if ((millis() - teemp) >= 2500) on = true;
+    }*/
   detachInterrupt(2);
+  delay(10);
+  fire.Update();
+  int tmp = fire.clicks;
+  if (tmp == 5) on = true;
+  if (on == true) lcd.setPower(true);
 }
 void poweron() {
-  detachInterrupt(2);
+  delay(5);
 }
