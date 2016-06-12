@@ -62,7 +62,7 @@ const unsigned char low[] = {
 const unsigned char empty[] = {
   0xFE, 0x87, 0x99, 0xE1, 0xFE
 };
-const unsigned char ohm[] = {
+const unsigned char ohm[] = { //saving for later use
   0x58, 0x64, 0x04, 0x64, 0x58
 };
 const unsigned char splashscreen[] = {
@@ -79,12 +79,7 @@ void setup() {
   pinMode(2, INPUT);
   pinMode(mosfet, OUTPUT);
   lcd.begin();
-  lcd.createChar(0, ohm);
-  lcd.createChar(1, full);
-  lcd.createChar(2, hi);
-  lcd.createChar(3, med);
-  lcd.createChar(4, low);
-  lcd.createChar(5, empty);
+  prepchar();
   fire.debounceTime = 10;
   fire.multiclickTime = 400;
   fire.longClickTime = 200;
@@ -127,6 +122,7 @@ void loop() {
     case 1:
       if (lock == true) lcd.begin();
       lock = false;
+      prepchar();
       printstate(vbat, duty, rms, mode, puffs, pufftime); break;
     case 3:
       if (mode == 1) {
@@ -149,7 +145,7 @@ void loop() {
       serv(baud, vbat, duty, rms, mode, puffs, pufftime); break;
   }
   if (cnt != 0) lastpress = millis();
-  if ((millis() - lastpress) >= (dim*1000) && cnt == 0 && lock == false) {
+  if ((millis() - lastpress) >= (dim * 1000) && cnt == 0 && lock == false) {
     lcd.stop();
     lock = true;
   }
@@ -175,7 +171,7 @@ void printstate(float vbatmp, float dutmp, float rmstmp, int modtmp, int pufftmp
   lcd.println(pufftmp2, 2);
   lcd.setCursor(0, 5);
   lcd.print(cbat, 0);
-  lcd.print("%");
+  lcd.print("% ");
   lcd.setCursor(79, 5);
   if (cbat <= 100 && cbat >= 95) lcd.write(1);
   if (cbat < 95 && cbat >= 70) lcd.write(2);
@@ -215,7 +211,7 @@ void go(int mostmp, float dutmp, int fitmp) {
   analogWrite(mostmp, dutmp);
   lcd.setCursor(0, 4);
   lcd.clearLine();
-  while (digitalRead(fitmp) != 0 && licz < (timeout+0.01)) { //It's not rocket science
+  while (digitalRead(fitmp) != 0 && licz < (timeout + 0.01)) { //It's not rocket science
     licz = (millis() - czas) / 1000;
     lcd.setCursor(33, 4);
     lcd.print(licz, 2);
@@ -273,3 +269,12 @@ void power() {
 void poweron() {
   detachInterrupt(2);
 }
+void prepchar() {
+  lcd.createChar(0, ohm);
+  lcd.createChar(1, full);
+  lcd.createChar(2, hi);
+  lcd.createChar(3, med);
+  lcd.createChar(4, low);
+  lcd.createChar(5, empty);
+}
+
