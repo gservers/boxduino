@@ -116,6 +116,7 @@ void loop() {
     //default: printstate(vbat, duty, rms, mode, puffs, pufftime); break;
     case -1:
       if (digitalRead(2) == 1 && lock == false) {
+        printstate(vbat, duty, rms, mode, puffs, pufftime);
         go(mosfet, duty, 2);
         printstate(vbat, duty, rms, mode, puffs, pufftime);
       } break;
@@ -123,6 +124,12 @@ void loop() {
       if (lock == true) lcd.begin();
       lock = false;
       prepchar();
+      if (lock == false && rms <= 0.2) {
+        lcd.clear();
+        lcd.print("  Ohm Set Mode");
+        delay(2000);
+        lcd.clear();
+      }
       printstate(vbat, duty, rms, mode, puffs, pufftime); break;
     case 3:
       if (mode == 1) {
@@ -277,4 +284,3 @@ void prepchar() {
   lcd.createChar(4, low);
   lcd.createChar(5, empty);
 }
-
