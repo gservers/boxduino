@@ -1,5 +1,7 @@
 ## BOXduino - the first Arduino powered e-cigarette!  
 
+Suprise is coming, stay tuned! :D  
+
 Currently working:
   * Sleep / Power on - makes BOXduino more powersaving!  
   * Firing - I don't need to explain this one  
@@ -22,5 +24,7 @@ Controls:
 * Power off: 5x click  
 * Power on: Hold the button (while off)  
 * Serial debug: 6x click   
+* Suprise: decrease power to minimum and short click ;)  
 * Wakeup the screen: 1x click  
-Check Issues for ToDo list and feel free to add new suggestions!  
+
+##Check Issues for ToDo list and feel free to add new suggestions!  
