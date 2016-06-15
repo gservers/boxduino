@@ -38,7 +38,7 @@ const float r1 = 1000000.0; //R1 of Vin voltmeter
 const float r2 = 100000.0; //R2 Vin voltmeter
 const float vin = 8.4; //Max. supply voltage
 const float vbord = 6; //Max. discharge voltage
-const float ohmcal = 0;//0.31; //Resistance of connections. Just short wires,
+const float ohmcal = 0.08; //Resistance of connections. Just short wires,
 //Check the readings and change value if needed
 
 int mode = 0; //0 - VV/VW, 1 - BYPASS
@@ -126,8 +126,8 @@ void loop() {
     case 1:
       duty = 255; rms = vbat; break;
   }
-  duty = duty-255; //P-FET transistor reacts to low state soooo...
-  if(duty < 0) duty *= -1; //The value must be inverted
+  duty = duty - 255; //P-FET transistor reacts to low state soooo...
+  if (duty < 0) duty *= -1; //The value must be inverted
   fire.Update();
   cnt = fire.clicks;
   if (cnt != 0) lastpress = millis();
@@ -141,9 +141,9 @@ void loop() {
       } break;
     case 1:
       if (lock == true) lcd.begin();
+      else res = gainres(ohmmetpower, ohmmet, probes);
       lock = false;
       prepchar();
-      res = gainres(ohmmetpower, ohmmet, probes);
       printstate(vbat, duty, rms, mode, puffs, pufftime, res); break;
     case 3:
       if (mode == 1) {
@@ -220,6 +220,8 @@ void printstate(float vbatmp, float dutmp, float rmstmp, int modtmp, int pufftmp
   lcd.print(cbat, 0);
   lcd.print("% ");
   lcd.setCursor(30, 5);
+  if(restmp > 9.99) restmp = 9.99;
+  if(restmp < 0.03) restmp = 0.00;
   lcd.print(restmp, 2);
   lcd.write(0);
   lcd.setCursor(79, 5);
@@ -265,8 +267,6 @@ float gainres(int ohmsuptmp, int ohmmetmp, int probetmp) {
   digitalWrite(ohmsuptmp, LOW);
   tempres /= probetmp;
   tempres -= ohmcal;
-  if (tempres > 9.99) tempres = 9.99;
-  if (tempres < 0.01) tempres = 0.00;
   return (tempres);
 }
 
