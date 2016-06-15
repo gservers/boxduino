@@ -8,18 +8,20 @@
     your car.
     TL;DR - You are responsible for this. Not me.
             Do not redistribute without my permission.
+    This sketch needs P-FET, N-FET and bipolar transistors
+    as well.
+    Updates coil resistance automatically. FINALLY!.
 */
 #include "PCD8544/PCD8544.h"
 #include "ClickButton/ClickButton.h"
 //https://github.com/stevecooley/beatseqr-software/tree/master/arduino_code/beatseqr_arduino_firmware_4_experimental
-#include <avr/sleep.h>
-#include <avr/power.h>
+#include <avr/sleep.h> //Sleeping lib
+#include <avr/power.h> //^up
 static PCD8544 lcd;
 bool on = true; //Check if powered
 bool inv = false; //Screen inverted
 bool lock = false; //Autofire
-const int nfet = 6; //PWM output to N-FET
-const int pfet = 9; //Trigger (+) channel of P-FET
+const int pfet = 6; //Trigger (+) channel of P-FET
 ClickButton fire(2, HIGH); //Define fire button as object
 const int pot = A0; //Potentiometer
 const int volt = A1; // Vin voltmeter
@@ -28,16 +30,16 @@ const int holddelay = 100; //Long press
 const int timeout = 10; //Fire limit
 const int dim = 10; //Disable display limit
 const int baud = 9600; //Serial baudrate
-const int ohmmetpower = 10; //Ohmmeter power supply
+const int ohmmetpower = 9; //Ohmmeter power supply
 const int ohmmet = A2; //Ohmmeter output
-const int probes = 20; //How many readings will be get
+const int probes = 10; //How many readings will be get
 
 const float r1 = 1000000.0; //R1 of Vin voltmeter
 const float r2 = 100000.0; //R2 Vin voltmeter
 const float vin = 8.4; //Max. supply voltage
 const float vbord = 6; //Max. discharge voltage
-const float ohmcal = 0.31; //Resistance of connections. Just short wires, 
-                           //Check the readings and change value if needed
+const float ohmcal = 0;//0.31; //Resistance of connections. Just short wires,
+//Check the readings and change value if needed
 
 int mode = 0; //0 - VV/VW, 1 - BYPASS
 int cnt = 0; //How many times button was pressed
@@ -83,10 +85,10 @@ const unsigned char splashscreen[] = {
 void setup() {
   Serial.begin(9600);
   //TCCR0B = TCCR0B & 0b11111000 | 0x01; //Set 61kHz PWM whick is 64 times faster than normal
+  //If I enable this, all millis() and delay() parts MUST be multiplied by 64.
   pinMode(pot, INPUT);
   pinMode(volt, INPUT);
   pinMode(2, INPUT);
-  pinMode(nfet, OUTPUT);
   pinMode(pfet, OUTPUT);
   digitalWrite(pfet, HIGH);
   pinMode(ohmmetpower, OUTPUT);
@@ -103,7 +105,6 @@ void setup() {
   lcd.clear();
   lcd.setCursor(0, 0);
   digitalWrite(pfet, HIGH);
-  digitalWrite(nfet, LOW);
   vbat = gainvbat(volt, r1, r2);
   res = gainres(ohmmetpower, ohmmet, probes);
   switch (mode) {
@@ -119,13 +120,14 @@ void setup() {
 void loop() {
   fire.Update();
   vbat = gainvbat(volt, r1, r2);
-  res = gainres(ohmmetpower, ohmmet, probes);
   switch (mode) {
     case 0:
       duty = gainduty(pot); rms = gainrms(vbat, duty); break;
     case 1:
       duty = 255; rms = vbat; break;
   }
+  duty = duty-255; //P-FET transistor reacts to low state soooo...
+  if(duty < 0) duty *= -1; //The value must be inverted
   fire.Update();
   cnt = fire.clicks;
   if (cnt != 0) lastpress = millis();
@@ -134,13 +136,14 @@ void loop() {
     case -1:
       if (digitalRead(2) == 1 && lock == false) {
         printstate(vbat, duty, rms, mode, puffs, pufftime, res);
-        go(pfet, nfet, duty, 2);
+        go(pfet, duty, 2);
         printstate(vbat, duty, rms, mode, puffs, pufftime, res);
       } break;
     case 1:
       if (lock == true) lcd.begin();
       lock = false;
       prepchar();
+      res = gainres(ohmmetpower, ohmmet, probes);
       printstate(vbat, duty, rms, mode, puffs, pufftime, res); break;
     case 3:
       if (mode == 1) {
@@ -168,7 +171,33 @@ void loop() {
     lock = true;
   }
 }
-
+//MOSFET port, duty cycle, fire button port
+void go(int pftmp, float dutmp, int fitmp) {
+  float czas = millis();
+  float licz = 0;
+  lcd.setCursor(0, 4);
+  lcd.clearLine();
+  analogWrite(pfet, dutmp);
+  while (digitalRead(fitmp) != 0 && licz < (timeout + 0.01)) { //It's not rocket science
+    licz = (millis() - czas) / 1000;
+    lcd.setCursor(33, 4);
+    lcd.print(licz, 2);
+  }
+  digitalWrite(pfet, HIGH);
+  pufftime += licz;
+  delay(50);
+  if (licz >= 10.00) {
+    lcd.setCursor(33, 4);
+    lcd.print("10.00");
+    lcd.clearLine();
+    lcd.print("  Time's up!  ");
+    while (digitalRead(fitmp) == 1) {}
+    delay(2500);
+    lcd.clearLine();
+  }
+  lcd.clearLine();
+  puffs = puffs + 1;
+}
 void printstate(float vbatmp, float dutmp, float rmstmp, int modtmp, int pufftmp, float pufftmp2, float restmp) {
   cbat = ((vbatmp - vbord) * 100);
   if (cbat < 0) cbat = 0;
@@ -201,35 +230,7 @@ void printstate(float vbatmp, float dutmp, float rmstmp, int modtmp, int pufftmp
   if (cbat < 15) lcd.write(5);
 
 }
-//MOSFET port, duty cycle, fire button port
-void go(int pftmp, int nftmp, float dutmp, int fitmp) {
-  float czas = millis();
-  float licz = 0;
-  analogWrite(nftmp, dutmp);
-  lcd.setCursor(0, 4);
-  lcd.clearLine();
-  digitalWrite(pfet, LOW);
-  while (digitalRead(fitmp) != 0 && licz < (timeout + 0.01)) { //It's not rocket science
-    licz = (millis() - czas) / 1000;
-    lcd.setCursor(33, 4);
-    lcd.print(licz, 2);
-  }
-  analogWrite(nftmp, 0);
-  digitalWrite(pfet, HIGH);
-  pufftime += licz;
-  delay(50);
-  if (licz >= 10.00) {
-    lcd.setCursor(33, 4);
-    lcd.print("10.00");
-    lcd.clearLine();
-    lcd.print("  Time's up!  ");
-    while (digitalRead(fitmp) == 1) {}
-    delay(2500);
-    lcd.clearLine();
-  }
-  lcd.clearLine();
-  puffs = puffs + 1;
-}
+
 //Potentiometer port
 int gainduty(float potmp) {
   float dutmp = round((analogRead(potmp)) / 4);
@@ -254,14 +255,14 @@ float gainres(int ohmsuptmp, int ohmmetmp, int probetmp) {
   float tempres = 0;
   float tp = 0;
   digitalWrite(ohmsuptmp, HIGH);
-  delay(5);
+  delayMicroseconds(10);
   for (int a = 0; a < probes; a++) {
     tp = analogRead(ohmmetmp);
     tp = tp * 5 / 1023;
     tp = tp / 0.125;
     tempres += tp;
   }
-  digitalWrite(ohmmetpower, LOW);
+  digitalWrite(ohmsuptmp, LOW);
   tempres /= probetmp;
   tempres -= ohmcal;
   if (tempres > 9.99) tempres = 9.99;
@@ -272,7 +273,6 @@ float gainres(int ohmsuptmp, int ohmmetmp, int probetmp) {
 //Shutdown
 void power() {
   digitalWrite(pfet, HIGH);
-  digitalWrite(nfet, LOW);
   do {
     attachInterrupt(2, poweron, HIGH);
     lcd.stop();
@@ -321,7 +321,7 @@ void serv(int tmpbaud, float vbatmp, float dutmp, float rmstmp, int modtmp, int 
   Serial.println("s");
   Serial.print("Resistance: ");
   Serial.print(restmp);
-  Serial.println("ohm\n");
+  Serial.println("ohm");
   Serial.println("-=-=-=-=-=-=-=-=-=-=-=-=-=-=-");
   Serial.end();
 }
