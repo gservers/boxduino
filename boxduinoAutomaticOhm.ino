@@ -28,11 +28,16 @@ const int holddelay = 100; //Long press
 const int timeout = 10; //Fire limit
 const int dim = 10; //Disable display limit
 const int baud = 9600; //Serial baudrate
+const int ohmmetpower = 10; //Ohmmeter power supply
+const int ohmmet = A2; //Ohmmeter output
+const int probes = 20; //How many readings will be get
 
 const float r1 = 1000000.0; //R1 of Vin voltmeter
 const float r2 = 100000.0; //R2 Vin voltmeter
 const float vin = 8.4; //Max. supply voltage
 const float vbord = 6; //Max. discharge voltage
+const float ohmcal = 0.31; //Resistance of connections. Just short wires, 
+                           //Check the readings and change value if needed
 
 int mode = 0; //0 - VV/VW, 1 - BYPASS
 int cnt = 0; //How many times button was pressed
@@ -84,6 +89,8 @@ void setup() {
   pinMode(nfet, OUTPUT);
   pinMode(pfet, OUTPUT);
   digitalWrite(pfet, HIGH);
+  pinMode(ohmmetpower, OUTPUT);
+  pinMode(ohmmet, INPUT);
   lcd.begin();
   prepchar();
   fire.debounceTime = 10;
@@ -95,7 +102,10 @@ void setup() {
   delay(2500);
   lcd.clear();
   lcd.setCursor(0, 0);
+  digitalWrite(pfet, HIGH);
+  digitalWrite(nfet, LOW);
   vbat = gainvbat(volt, r1, r2);
+  res = gainres(ohmmetpower, ohmmet, probes);
   switch (mode) {
     case 0:
       duty = gainduty(pot); rms = gainrms(vbat, duty); break;
@@ -109,6 +119,7 @@ void setup() {
 void loop() {
   fire.Update();
   vbat = gainvbat(volt, r1, r2);
+  res = gainres(ohmmetpower, ohmmet, probes);
   switch (mode) {
     case 0:
       duty = gainduty(pot); rms = gainrms(vbat, duty); break;
@@ -123,7 +134,7 @@ void loop() {
     case -1:
       if (digitalRead(2) == 1 && lock == false) {
         printstate(vbat, duty, rms, mode, puffs, pufftime, res);
-        go(mosfet, duty, 2);
+        go(pfet, nfet, duty, 2);
         printstate(vbat, duty, rms, mode, puffs, pufftime, res);
       } break;
     case 1:
@@ -149,7 +160,7 @@ void loop() {
       on = false; power();
       printstate(vbat, duty, rms, mode, puffs, pufftime, res); break;
     case 6:
-      serv(baud, vbat, duty, rms, mode, puffs, pufftime); break;
+      serv(baud, vbat, duty, rms, mode, puffs, pufftime, res); break;
   }
   if (cnt != 0) lastpress = millis();
   if ((millis() - lastpress) >= (dim * 1000) && cnt == 0 && lock == false) {
@@ -179,8 +190,8 @@ void printstate(float vbatmp, float dutmp, float rmstmp, int modtmp, int pufftmp
   lcd.setCursor(0, 5);
   lcd.print(cbat, 0);
   lcd.print("% ");
-  lcd.setCursor(30,5);
-  lcd.print(restmp);
+  lcd.setCursor(30, 5);
+  lcd.print(restmp, 2);
   lcd.write(0);
   lcd.setCursor(79, 5);
   if (cbat <= 100 && cbat >= 95) lcd.write(1);
@@ -190,33 +201,6 @@ void printstate(float vbatmp, float dutmp, float rmstmp, int modtmp, int pufftmp
   if (cbat < 15) lcd.write(5);
 
 }
-void serv(int tmpbaud, float vbatmp, float dutmp, float rmstmp, int modtmp, int pufftmp, float pufftmp2, float restmp) {
-  Serial.begin(tmpbaud);
-  Serial.println("BOXduino service mode");
-  Serial.print("Supply voltage: ");
-  Serial.print(vbatmp, 1);
-  Serial.print("V\n");
-  Serial.print("Mode: ");
-  if (mode == 0) Serial.print("Regulated\n");
-  if (mode == 1) Serial.print("Bypass\n");
-  Serial.print("RMS voltage: ");
-  Serial.print(rmstmp, 1);
-  Serial.print("V\n");
-  Serial.print("Digital duty cycle: ");
-  Serial.print(dutmp, 0);
-  Serial.print("/255\n");
-  Serial.print("Puffs: ");
-  Serial.println(pufftmp);
-  Serial.print("Puff time: ");
-  Serial.print(pufftmp2, 2);
-  Serial.println("s");
-  Serial.print("Resistance: ");
-  Serial.print(restmp);
-  Serial.println("ohm\n");
-  Serial.println("-=-=-=-=-=-=-=-=-=-=-=-=-=-=-");
-  Serial.end();
-}
-
 //MOSFET port, duty cycle, fire button port
 void go(int pftmp, int nftmp, float dutmp, int fitmp) {
   float czas = millis();
@@ -264,11 +248,32 @@ float gainrms(float vbatmp, float dutmp) {
   float rmstmp = vbatmp * sqrt(statmp / 100); //RMS
   return (rmstmp);
 }
+//Ohmmeter power supply pin, ohmmeter reading pin, how many probes
+//Remember to DISABLE P-FET transistor and/or N-FET!
+float gainres(int ohmsuptmp, int ohmmetmp, int probetmp) {
+  float tempres = 0;
+  float tp = 0;
+  digitalWrite(ohmsuptmp, HIGH);
+  delay(5);
+  for (int a = 0; a < probes; a++) {
+    tp = analogRead(ohmmetmp);
+    tp = tp * 5 / 1023;
+    tp = tp / 0.125;
+    tempres += tp;
+  }
+  digitalWrite(ohmmetpower, LOW);
+  tempres /= probetmp;
+  tempres -= ohmcal;
+  if (tempres > 9.99) tempres = 9.99;
+  if (tempres < 0.01) tempres = 0.00;
+  return (tempres);
+}
+
 //Shutdown
 void power() {
-  do {
   digitalWrite(pfet, HIGH);
   digitalWrite(nfet, LOW);
+  do {
     attachInterrupt(2, poweron, HIGH);
     lcd.stop();
     set_sleep_mode(SLEEP_MODE_IDLE);
@@ -293,4 +298,30 @@ void prepchar() {
   lcd.createChar(3, med);
   lcd.createChar(4, low);
   lcd.createChar(5, empty);
+}
+void serv(int tmpbaud, float vbatmp, float dutmp, float rmstmp, int modtmp, int pufftmp, float pufftmp2, float restmp) {
+  Serial.begin(tmpbaud);
+  Serial.println("BOXduino service mode");
+  Serial.print("Supply voltage: ");
+  Serial.print(vbatmp, 1);
+  Serial.print("V\n");
+  Serial.print("Mode: ");
+  if (mode == 0) Serial.print("Regulated\n");
+  if (mode == 1) Serial.print("Bypass\n");
+  Serial.print("RMS voltage: ");
+  Serial.print(rmstmp, 1);
+  Serial.print("V\n");
+  Serial.print("Digital duty cycle: ");
+  Serial.print(dutmp, 0);
+  Serial.print("/255\n");
+  Serial.print("Puffs: ");
+  Serial.println(pufftmp);
+  Serial.print("Puff time: ");
+  Serial.print(pufftmp2, 2);
+  Serial.println("s");
+  Serial.print("Resistance: ");
+  Serial.print(restmp);
+  Serial.println("ohm\n");
+  Serial.println("-=-=-=-=-=-=-=-=-=-=-=-=-=-=-");
+  Serial.end();
 }
