@@ -1,6 +1,7 @@
 ## BOXduino - the first Arduino powered e-cigarette!  
 
 Suprise is coming, stay tuned! :D  
+Scheme is OUT OF DATE, couple of things were changed!  
 
 Currently working:
   * Sleep / Power on - makes BOXduino more powersaving!  
