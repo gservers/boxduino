@@ -40,4 +40,4 @@ Easy and clear, isn't it?
   * Wakeup the screen: 1x click   
   
 I didn't get any feedback, but if You find something hard to understand just pm me.  
-#Check Issues for ToDo list and feel free to add new suggestions!  
+##Check Issues for ToDo list and feel free to add new suggestions!  
