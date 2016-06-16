@@ -14,7 +14,7 @@ Device will automatically ask for resistance, just turn potentiometer to desired
 To change, just press fire two times.  
 Easy and clear, isn't it?  
 
-Currently working:
+#Currently working:
   * Ohmmeter!  
   * Sleep / Power on - makes BOXduino more powersaving!  
   * Firing - It's self-explainatory! 
@@ -25,11 +25,11 @@ Currently working:
   * Standard control - see controls below  
   * Screen refreshing! - RMS voltage and resistance, the only thing that should be  
 
-Currently unavaiable:
+#Currently unavaiable:
   * Backlight data as fast as I need)  
   * Scheme  
 
-Controls:  
+#Controls:  
   * Refresh everything: 1x click  
   * Fire: Hold the button  
   * Switch VV / Bypass: 3x click  
