@@ -7,12 +7,14 @@
     warranty it won't drink all your milk and steal
     your car.
     TL;DR - You are responsible for this. Not me.
-            Do not redistribute without my permission.
+            Please don't sell my code ir it's part
+            without my permission. Thanks!
     Updates coil resistance automatically. FINALLY!.
 */
-#include "PCD8544/PCD8544.h"
-#include "ClickButton/ClickButton.h"
-//https://github.com/stevecooley/beatseqr-software/tree/master/arduino_code/beatseqr_arduino_firmware_4_experimental
+#include "libraries/PCD8544/PCD8544.h" //LCD Library
+#include "libraries/ClickButton/ClickButton.h" //Fire button driver
+#include "libraries/Prescaler/Prescaler.h" //Fix for changed PWM settings
+//Use trueMillis() and trueDelay() instead of millis() and delay()
 #include <avr/sleep.h> //Sleeping lib
 #include <avr/power.h> //^up
 static PCD8544 lcd;

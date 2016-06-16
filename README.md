@@ -2,13 +2,15 @@
 
 Scheme is OUT OF DATE, couple of things were changed!  
 
-#Suprise!  
+##Suprise!  
 Ohmmeter is now available!  
 Thanks to bipolar transistor and some circuit changes it's now possible!  
 There are two modes available - manual and automatic.  
 To change them edit bool called "manual".  
+
 (false) Automatic is pretty easy to explain - ohmmeter circuit (and code) calculates the resistance by itself.  
 (true) Manual - if You can't/don't want to add LM317 circuit, the resistance is set by yourself.  
+
 You must know the resistance of the coil, but before I add TC it's just to show watts.  
 Device will automatically ask for resistance, just turn potentiometer to desired value and press fire.  
 To change, just press fire two times.  
