@@ -1,8 +1,8 @@
-## BOXduino - the first Arduino powered e-cigarette!  
+# BOXduino - the first Arduino powered e-cigarette!  
 
 Scheme is OUT OF DATE, couple of things were changed!  
 
-##Suprise!  
+#Suprise!  
 Ohmmeter is now available!  
 Thanks to bipolar transistor and some circuit changes it's now possible!  
 There are two modes available - manual and automatic.  
@@ -14,7 +14,7 @@ Device will automatically ask for resistance, just turn potentiometer to desired
 To change, just press fire two times.  
 Easy and clear, isn't it?  
 
-#Currently working:
+###Currently working:
   * Ohmmeter!  
   * Sleep / Power on - makes BOXduino more powersaving!  
   * Firing - It's self-explainatory! 
@@ -25,11 +25,11 @@ Easy and clear, isn't it?
   * Standard control - see controls below  
   * Screen refreshing! - RMS voltage and resistance, the only thing that should be  
 
-#Currently unavaiable:
+###Currently unavaiable:
   * Backlight data as fast as I need)  
   * Scheme  
 
-#Controls:  
+###Controls:  
   * Refresh everything: 1x click  
   * Fire: Hold the button  
   * Switch VV / Bypass: 3x click  
@@ -40,4 +40,4 @@ Easy and clear, isn't it?
   * Wakeup the screen: 1x click   
   
 I didn't get any feedback, but if You find something hard to understand just pm me.  
-##Check Issues for ToDo list and feel free to add new suggestions!  
+#Check Issues for ToDo list and feel free to add new suggestions!  
