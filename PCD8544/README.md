@@ -36,10 +36,10 @@ To make it easy to create custom symbols, there's a graphical glyph editor
 
 #This isn't my library!
 I'm using it on following license:  
-The MIT License (MIT)
 
+>The MIT License (MIT)
 >Copyright (c) 2013 Carlos Rodrigues <cefrodrigues@gmail.com>
-
+>
 >Permission is hereby granted, free of charge, to any person obtaining a copy
 >of this software and associated documentation files (the "Software"), to deal
 >in the Software without restriction, including without limitation the rights
