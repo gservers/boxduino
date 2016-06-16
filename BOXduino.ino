@@ -106,6 +106,7 @@ void setup() {
   lcd.clear();
   lcd.setCursor(0, 0);
   digitalWrite(pfet, HIGH);
+  digitalWrite(ohmmetpower, LOW);
   vbat = gainvbat(volt, r1, r2);
   if (manual == false)
     res = gainres(ohmmetpower, ohmmet, probes);
