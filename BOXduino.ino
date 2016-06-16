@@ -8,8 +8,6 @@
     your car.
     TL;DR - You are responsible for this. Not me.
             Do not redistribute without my permission.
-    This sketch needs P-FET, N-FET and bipolar transistors
-    as well.
     Updates coil resistance automatically. FINALLY!.
 */
 #include "PCD8544/PCD8544.h"
@@ -53,10 +51,13 @@ float vbat = 0; //Vin voltage
 float cbat = 0; //Baterry %
 float res = 0; //Resistance
 //delays - must be multiplied by 64. Don't ask, just do it.
-//const int bouncedelay = 50*64; //Short press
-//const int holddelay = 100*64; //Long press
 const int timeout = 10; //Fire limit
 const int dim = 10; //Disable display limit
+//It would be too easy. Now I must edit libraries and the rest of code.
+//*looks at the code*
+//*imagines how much work will it take*
+//*lays down*
+//*cries*
 
 const unsigned char full[] = {
   0xFE, 0xFF, 0xFF, 0xFF, 0xFE
