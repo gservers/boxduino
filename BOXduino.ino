@@ -28,7 +28,7 @@ const int volt = A1; // Vin voltmeter
 const int baud = 9600; //Serial baudrate
 const int ohmmetpower = 9; //Ohmmeter power supply
 const int ohmmet = A2; //Ohmmeter output
-const int probes = 20; //How many readings will be get
+const int probes = 10; //How many readings will be get
 
 const float r1 = 1000000.0; //R1 of Vin voltmeter
 const float r2 = 100000.0; //R2 Vin voltmeter
@@ -70,7 +70,7 @@ const unsigned char low[] = {
 const unsigned char empty[] = {
   0xFE, 0x87, 0x99, 0xE1, 0xFE
 };
-const unsigned char ohm[] = {
+const unsigned char ohm[] = { //saving for later use
   0x58, 0x64, 0x04, 0x64, 0x58
 };
 const unsigned char splashscreen[] = {
@@ -83,8 +83,7 @@ const unsigned char splashscreen[] = {
 };
 void setup() {
   TCCR0A = _BV(COM0A1) | _BV(COM0B1) | _BV(WGM01) | _BV(WGM00);
-  TCCR0B = _BV(CS00);
-  //TCCR0B = TCCR0B & 0b11111000 | 0x01; //Set 61kHz PWM whick is 64 times faster than normal
+  TCCR0B = _BV(CS00); 
   pinMode(pot, INPUT);
   pinMode(volt, INPUT);
   pinMode(2, INPUT);
@@ -100,7 +99,7 @@ void setup() {
   on = true;
   lcd.clear();
   lcd.drawBitmap(splashscreen, 84, 48);
-  trueDelay(2500);
+  delay(2500);
   lcd.clear();
   lcd.setCursor(0, 0);
   digitalWrite(pfet, HIGH);
@@ -116,7 +115,7 @@ void setup() {
       duty = 255; rms = vbat; break;
   }
   printstate(vbat, duty, rms, mode, puffs, pufftime, res);
-  lastpress = trueMillis();
+  lastpress = millis();
 }
 
 void loop() {
@@ -142,7 +141,7 @@ void loop() {
   //if (duty < 0) duty *= -1; //The value must be inverted
   fire.Update();
   cnt = fire.clicks;
-  if (cnt != 0) lastpress = trueMillis();
+  if (cnt != 0) lastpress = millis();
   switch (cnt) {
     //default: printstate(vbat, duty, rms, mode, puffs, pufftime, res); break;
     case -1:
@@ -182,36 +181,37 @@ void loop() {
     case 6:
       serv(baud, vbat, duty, rms, mode, puffs, pufftime, res); break;
   }
-  if (cnt != 0) lastpress = trueMillis();
-  if ((trueMillis() - lastpress) >= (dim * 1000) && cnt == 0 && lock == false) {
+  if (cnt != 0) lastpress = millis();
+  if ((millis() - lastpress) >= (dim * 1000) && cnt == 0 && lock == false) {
     lcd.stop();
     lock = true;
   }
 }
 //MOSFET port, duty cycle, fire button port
 void go(int pftmp, float dutmp, int fitmp) {
-  float czas = trueMillis();
+  float czas = millis();
   float licz = 0;
   lcd.setCursor(0, 4);
   lcd.clearLine();
   analogWrite(pfet, dutmp);
-  while (digitalRead(fitmp) != 0 && licz <= timeout) {
-    licz = (trueMillis() - czas) / 1000;
+  while (digitalRead(fitmp) != 0 && licz < (timeout + 0.01)) { //It's not rocket science
+    licz = (millis() - czas) / 1000;
     lcd.setCursor(33, 4);
     lcd.print(licz, 2);
   }
   digitalWrite(pfet, HIGH);
-  pufftime += licz;
-  trueDelay(50);
-  if (licz >= 10.00) {
+  delay(50);
+  if (licz >= timeout) {
     lcd.setCursor(33, 4);
     lcd.print("10.00");
     lcd.clearLine();
     lcd.print("  Time's up!  ");
     while (digitalRead(fitmp) == 1) {}
-    trueDelay(2500);
+    delay(2500);
     lcd.clearLine();
+    licz = timeout;
   }
+  pufftime += licz;
   lcd.clearLine();
   puffs = puffs + 1;
 }
@@ -277,9 +277,9 @@ void power() {
     sleep_enable();
     sleep_mode();
     sleep_disable();
-    long int teemp = trueMillis();
+    long int teemp = millis();
     while (digitalRead(2) == HIGH) {
-      if ((trueMillis() - teemp) >= 2500) on = true;
+      if ((millis() - teemp) >= 2500) on = true;
     }
     detachInterrupt(2);
     if (on == true) lcd.setPower(true);
@@ -355,15 +355,3 @@ void printstate(float vbatmp, float dutmp, float rmstmp, int modtmp, int pufftmp
   if (cbat < 40 && cbat >= 15) lcd.write(4);
   if (cbat < 15) lcd.write(5);
 }
-
-void trueDelay(unsigned long int i){
-  i = i*64;
-  delay(i);
-}
-
-unsigned long int trueMillis(){
-  unsigned long int out = millis();
-  out = out * 64;
-  return(out);
-}
-
