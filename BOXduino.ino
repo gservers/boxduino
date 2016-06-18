@@ -11,10 +11,9 @@
             without my permission. Thanks!
     Updates coil resistance automatically. FINALLY!.
 */
-#include "libraries/PCD8544.h" //LCD Library
-#include "libraries/ClickButton.h" //Fire button driver
-#include "libraries/Prescaler.h" //Fix for changed PWM settings
-//Use trueMillis() and trueDelay() instead of millis() and trueDelay()
+#define MICROSECONDS_PER_TIMER0_OVERFLOW (clockCyclesToMicroseconds(1 * 256))
+#include "libraries/PCD8544/PCD8544.h" //LCD Library
+#include "libraries/ClickButton/ClickButton.h" //Fire button driver
 #include <avr/sleep.h> //Sleeping lib
 #include <avr/power.h> //^up
 static PCD8544 lcd;
@@ -29,7 +28,7 @@ const int volt = A1; // Vin voltmeter
 const int baud = 9600; //Serial baudrate
 const int ohmmetpower = 9; //Ohmmeter power supply
 const int ohmmet = A2; //Ohmmeter output
-const int probes = 10; //How many readings will be get
+const int probes = 20; //How many readings will be get
 
 const float r1 = 1000000.0; //R1 of Vin voltmeter
 const float r2 = 100000.0; //R2 Vin voltmeter
@@ -71,7 +70,7 @@ const unsigned char low[] = {
 const unsigned char empty[] = {
   0xFE, 0x87, 0x99, 0xE1, 0xFE
 };
-const unsigned char ohm[] = { //saving for later use
+const unsigned char ohm[] = {
   0x58, 0x64, 0x04, 0x64, 0x58
 };
 const unsigned char splashscreen[] = {
@@ -83,7 +82,9 @@ const unsigned char splashscreen[] = {
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 };
 void setup() {
-  TCCR0B = TCCR0B & 0b11111000 | 0x01; //Set 61kHz PWM whick is 64 times faster than normal
+  TCCR0A = _BV(COM0A1) | _BV(COM0B1) | _BV(WGM01) | _BV(WGM00);
+  TCCR0B = _BV(CS00);
+  //TCCR0B = TCCR0B & 0b11111000 | 0x01; //Set 61kHz PWM whick is 64 times faster than normal
   pinMode(pot, INPUT);
   pinMode(volt, INPUT);
   pinMode(2, INPUT);
@@ -194,7 +195,7 @@ void go(int pftmp, float dutmp, int fitmp) {
   lcd.setCursor(0, 4);
   lcd.clearLine();
   analogWrite(pfet, dutmp);
-  while (digitalRead(fitmp) != 0 && licz < (timeout + 0.01)) { //It's not rocket science
+  while (digitalRead(fitmp) != 0 && licz <= timeout) {
     licz = (trueMillis() - czas) / 1000;
     lcd.setCursor(33, 4);
     lcd.print(licz, 2);
@@ -354,3 +355,15 @@ void printstate(float vbatmp, float dutmp, float rmstmp, int modtmp, int pufftmp
   if (cbat < 40 && cbat >= 15) lcd.write(4);
   if (cbat < 15) lcd.write(5);
 }
+
+void trueDelay(unsigned long int i){
+  i = i*64;
+  delay(i);
+}
+
+unsigned long int trueMillis(){
+  unsigned long int out = millis();
+  out = out * 64;
+  return(out);
+}
+
