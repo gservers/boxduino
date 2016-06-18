@@ -11,10 +11,10 @@
             without my permission. Thanks!
     Updates coil resistance automatically. FINALLY!.
 */
-#include "libraries/PCD8544/PCD8544.h" //LCD Library
-#include "libraries/ClickButton/ClickButton.h" //Fire button driver
-#include "libraries/Prescaler/Prescaler.h" //Fix for changed PWM settings
-//Use trueMillis() and trueDelay() instead of millis() and delay()
+#include "libraries/PCD8544.h" //LCD Library
+#include "libraries/ClickButton.h" //Fire button driver
+#include "libraries/Prescaler.h" //Fix for changed PWM settings
+//Use trueMillis() and trueDelay() instead of millis() and trueDelay()
 #include <avr/sleep.h> //Sleeping lib
 #include <avr/power.h> //^up
 static PCD8544 lcd;
@@ -52,14 +52,9 @@ float duty = 0; //duty cycle (0-255)
 float vbat = 0; //Vin voltage
 float cbat = 0; //Baterry %
 float res = 0; //Resistance
-//delays - must be multiplied by 64. Don't ask, just do it.
+
 const int timeout = 10; //Fire limit
 const int dim = 10; //Disable display limit
-//It would be too easy. Now I must edit libraries and the rest of code.
-//*looks at the code*
-//*imagines how much work will it take*
-//*lays down*
-//*cries*
 
 const unsigned char full[] = {
   0xFE, 0xFF, 0xFF, 0xFF, 0xFE
@@ -88,8 +83,7 @@ const unsigned char splashscreen[] = {
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 };
 void setup() {
-  //TCCR0B = TCCR0B & 0b11111000 | 0x01; //Set 61kHz PWM whick is 64 times faster than normal
-  //If I enable this, all millis() and delay() parts MUST be multiplied by 64.
+  TCCR0B = TCCR0B & 0b11111000 | 0x01; //Set 61kHz PWM whick is 64 times faster than normal
   pinMode(pot, INPUT);
   pinMode(volt, INPUT);
   pinMode(2, INPUT);
@@ -105,7 +99,7 @@ void setup() {
   on = true;
   lcd.clear();
   lcd.drawBitmap(splashscreen, 84, 48);
-  delay(2500);
+  trueDelay(2500);
   lcd.clear();
   lcd.setCursor(0, 0);
   digitalWrite(pfet, HIGH);
@@ -121,7 +115,7 @@ void setup() {
       duty = 255; rms = vbat; break;
   }
   printstate(vbat, duty, rms, mode, puffs, pufftime, res);
-  lastpress = millis();
+  lastpress = trueMillis();
 }
 
 void loop() {
@@ -147,7 +141,7 @@ void loop() {
   //if (duty < 0) duty *= -1; //The value must be inverted
   fire.Update();
   cnt = fire.clicks;
-  if (cnt != 0) lastpress = millis();
+  if (cnt != 0) lastpress = trueMillis();
   switch (cnt) {
     //default: printstate(vbat, duty, rms, mode, puffs, pufftime, res); break;
     case -1:
@@ -187,34 +181,34 @@ void loop() {
     case 6:
       serv(baud, vbat, duty, rms, mode, puffs, pufftime, res); break;
   }
-  if (cnt != 0) lastpress = millis();
-  if ((millis() - lastpress) >= (dim * 1000) && cnt == 0 && lock == false) {
+  if (cnt != 0) lastpress = trueMillis();
+  if ((trueMillis() - lastpress) >= (dim * 1000) && cnt == 0 && lock == false) {
     lcd.stop();
     lock = true;
   }
 }
 //MOSFET port, duty cycle, fire button port
 void go(int pftmp, float dutmp, int fitmp) {
-  float czas = millis();
+  float czas = trueMillis();
   float licz = 0;
   lcd.setCursor(0, 4);
   lcd.clearLine();
   analogWrite(pfet, dutmp);
   while (digitalRead(fitmp) != 0 && licz < (timeout + 0.01)) { //It's not rocket science
-    licz = (millis() - czas) / 1000;
+    licz = (trueMillis() - czas) / 1000;
     lcd.setCursor(33, 4);
     lcd.print(licz, 2);
   }
   digitalWrite(pfet, HIGH);
   pufftime += licz;
-  delay(50);
+  trueDelay(50);
   if (licz >= 10.00) {
     lcd.setCursor(33, 4);
     lcd.print("10.00");
     lcd.clearLine();
     lcd.print("  Time's up!  ");
     while (digitalRead(fitmp) == 1) {}
-    delay(2500);
+    trueDelay(2500);
     lcd.clearLine();
   }
   lcd.clearLine();
@@ -282,9 +276,9 @@ void power() {
     sleep_enable();
     sleep_mode();
     sleep_disable();
-    long int teemp = millis();
+    long int teemp = trueMillis();
     while (digitalRead(2) == HIGH) {
-      if ((millis() - teemp) >= 2500) on = true;
+      if ((trueMillis() - teemp) >= 2500) on = true;
     }
     detachInterrupt(2);
     if (on == true) lcd.setPower(true);
