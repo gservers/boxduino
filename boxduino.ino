@@ -50,9 +50,12 @@ float pufftime = 0; //Total puff time
 float state = 0; //% of potentiometer scale
 float rms = 0;  //RMS voltage
 float duty = 0; //duty cycle (0-255)
+float maxduty = 0; //maximum duty
 float vbat = 0; //Vin voltage
 float cbat = 0; //Baterry %
 float res = 0; //Resistance
+float minres = 0; //Minimal resistance
+float maxvolt = 0; //Max voltage
 int watts = 0; //Watts
 
 const int timeout = 10; //Fire limit
@@ -88,7 +91,7 @@ void setup() {
   lcd.begin();
   lcd.setContrast(65);
   lcd.drawBitmap(splashscreen, 84, 48);
-  setPwmFrequency(9, 1); //31372.55Hz, 510 cycle length
+  setPwmFrequency(9, 1); //31372.55Hz, 255 cycle length
   pinMode(pot, INPUT);
   pinMode(volt, INPUT);
   pinMode(2, INPUT);
@@ -104,6 +107,8 @@ void setup() {
   digitalWrite(pfet, HIGH);
   digitalWrite(ohmmetpower, LOW);
   vbat = gainvbat(volt, r1, r2);
+  minres = vbat * vbat / maxwatt;
+  maxvolt = sqrt(minres * maxwatt);
   if (manual == false)
     res = gainres(ohmmetpower, ohmmet, probes);
   else res = setohm(pot);
@@ -111,10 +116,9 @@ void setup() {
     case 0:
       duty = gainduty(pot); rms = gainrms(vbat, duty);
       watts = round(rms * rms / res);
-      if (watts > maxwatt) rms = sqrt(res * maxwatt);
       break;
     case 1:
-      duty = 510; rms = vbat; break;
+      duty = 255; rms = vbat; break;
   }
   delay(1500);
   lcd.clear();
@@ -129,11 +133,9 @@ void loop() {
   switch (mode) {
     case 0:
       duty = gainduty(pot); rms = gainrms(vbat, duty);
-      watts = round(rms * rms / res);
-      if (watts > maxwatt) rms = sqrt(res * maxwatt);
-      break;
+      watts = round(rms * rms / res); break;
     case 1:
-      duty = 510; rms = vbat;
+      duty = 255; rms = vbat;
       watts = round(rms * rms / res); break;
   }
 
@@ -149,7 +151,7 @@ void loop() {
   lcd.print(res, 2);
   lcd.write(0);
 
-  duty = abs(duty - 510); //P-FET transistor reacts to low state soooo...
+  duty = abs(duty - 255); //P-FET transistor reacts to low state soooo...
   //if (duty < 0) duty *= -1; //The value must be inverted
   fire.Update();
   cnt = fire.clicks;
@@ -157,11 +159,19 @@ void loop() {
   switch (cnt) {
     //default: printstate(vbat, duty, rms, mode, res); break;
     case -1:
-      if (digitalRead(2) == 1 && lock == false) {
-        printstate(vbat, duty, rms, mode, res);
-        go(pfet, duty, 2);
-        printstate(vbat, duty, rms, mode, res);
-      } break;
+      if (res > minres) {
+        if (digitalRead(2) == 1 && lock == false) {
+          printstate(vbat, duty, rms, mode, res);
+          go(pfet, duty, 2);
+          printstate(vbat, duty, rms, mode, res);
+        }
+      } else {
+        lcd.setCursor(0, 3);
+        lcd.print(" Too low ohm!");
+        delay(1000);
+        lcd.clearLine();
+      }
+      break;
     case 1:
       if (lock == true) {
         lcd.begin();
@@ -185,6 +195,10 @@ void loop() {
         lcd.print("Max power:");
         lcd.print(maxwatt);
         lcd.print("W");
+        lcd.setCursor(0, 4);
+        lcd.print("Min ohm: ");
+        lcd.print(minres);
+        lcd.write(0);
         delay(2000);
         lcd.clear();
       }
@@ -194,10 +208,9 @@ void loop() {
         mode = 0;
         duty = gainduty(pot);
         rms = gainrms(vbat, duty);
-        if ((rms * rms / res) > maxwatt) rms = sqrt(res * maxwatt);
       } else {
         mode = 1;
-        duty = 510;
+        duty = 255;
         rms = vbat;
       }
       printstate(vbat, duty, rms, mode, res); break;
@@ -247,9 +260,9 @@ void go(int pftmp, float dutmp, int fitmp) {
   puffs = puffs + 1;
 }
 //Potentiometer port
-int gainduty(float potmp) { //510, NOT 256!
+int gainduty(float potmp) {
   float dutmp = analogRead(potmp);
-  dutmp = map(dutmp, 0, 1023, 0, 510);
+  dutmp = map(dutmp, 0, 1023, 0, 255);
   return (dutmp);
 }
 //Vin voltmeter port, R1, R2
@@ -259,7 +272,7 @@ float gainvbat(int batmp, float rtmp1, float rtmp2) {
 }
 //Vin voltage, duty cycle
 float gainrms(float vbatmp, float dutmp) {
-  float statmp = (dutmp * 100) / 510; //Stan w %
+  float statmp = (dutmp * 100) / 255; //Stan w %
   float rmstmp = vbatmp * sqrt(statmp / 100); //RMS
   return (rmstmp);
 }
@@ -281,7 +294,7 @@ float setohm(int potmp) { //If you know resistance of coil
   delay(2000);
   while (digitalRead(2) != true) {
     tempohm = analogRead(potmp);
-    tempohm /= 1023.0; //3 ohm max
+    tempohm /= 1023.0; //9.99 ohm max
     tempohm *= 999;
     tempohm = ceil(tempohm);
     tempohm /= 100;
@@ -353,7 +366,7 @@ void serv(int tmpbaud, float vbatmp, float dutmp, float rmstmp, int modtmp, int 
   Serial.print("V\n");
   Serial.print("Digital duty cycle: ");
   Serial.print(dutmp, 0);
-  Serial.print("/510\n");
+  Serial.print("/255\n");
   Serial.print("Puffs: ");
   Serial.println(pufftmp);
   Serial.print("Puff time: ");
