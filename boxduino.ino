@@ -17,7 +17,7 @@
 #include <avr/sleep.h> //Sleeping lib
 #include <avr/power.h> //^up
 static PCD8544 lcd;
-bool manual = false; //true for LM317 circiut, false for manual setting
+bool manual = true; //true for LM317 circiut, false for manual setting
 bool on = true; //Check if powered
 bool inv = false; //Screen inverted
 bool lock = false; //Autofire
@@ -29,6 +29,7 @@ const int ohmmetpower = 8; //Ohmmeter power supply
 const int pot = A0; //Potentiometer
 const int volt = A1; // Vin voltmeter
 const int ohmmet = A2; //Ohmmeter output
+const int maxwatt = 200; //Max power
 
 const int probes = 15; //How many readings will be get
 const float r1 = 1000000.0; //R1 of Vin voltmeter
@@ -52,6 +53,7 @@ float duty = 0; //duty cycle (0-255)
 float vbat = 0; //Vin voltage
 float cbat = 0; //Baterry %
 float res = 0; //Resistance
+int watts = 0; //Watts
 
 const int timeout = 10; //Fire limit
 const int dim = 10; //Disable display limit
@@ -107,14 +109,17 @@ void setup() {
   else res = setohm(pot);
   switch (mode) {
     case 0:
-      duty = gainduty(pot); rms = gainrms(vbat, duty); break;
+      duty = gainduty(pot); rms = gainrms(vbat, duty);
+      watts = round(rms * rms / res);
+      if (watts > maxwatt) rms = sqrt(res * maxwatt);
+      break;
     case 1:
       duty = 510; rms = vbat; break;
   }
   delay(1500);
   lcd.clear();
   lcd.setCursor(0, 0);
-  printstate(vbat, duty, rms, mode, puffs, pufftime, res);
+  printstate(vbat, duty, rms, mode, res);
   lastpress = millis();
 }
 
@@ -123,15 +128,22 @@ void loop() {
   vbat = gainvbat(volt, r1, r2);
   switch (mode) {
     case 0:
-      duty = gainduty(pot); rms = gainrms(vbat, duty); break;
+      duty = gainduty(pot); rms = gainrms(vbat, duty);
+      watts = round(rms * rms / res);
+      if (watts > maxwatt) rms = sqrt(res * maxwatt);
+      break;
     case 1:
-      duty = 510; rms = vbat; break;
+      duty = 510; rms = vbat;
+      watts = round(rms * rms / res); break;
   }
 
-  lcd.setCursor(54, 2);
+  lcd.setCursor(30, 2);
+  lcd.print(watts);
+  lcd.print("W  ");
+  lcd.setCursor(30, 3);
   lcd.print(rms, 1);
   lcd.print("V");
-  lcd.setCursor(30, 5);
+  lcd.setCursor(30, 4);
   if (res > 9.99) res = 9.99;
   if (res < 0.03) res = 0.00;
   lcd.print(res, 2);
@@ -143,12 +155,12 @@ void loop() {
   cnt = fire.clicks;
   if (cnt != 0) lastpress = millis();
   switch (cnt) {
-    //default: printstate(vbat, duty, rms, mode, puffs, pufftime, res); break;
+    //default: printstate(vbat, duty, rms, mode, res); break;
     case -1:
       if (digitalRead(2) == 1 && lock == false) {
-        printstate(vbat, duty, rms, mode, puffs, pufftime, res);
+        printstate(vbat, duty, rms, mode, res);
         go(pfet, duty, 2);
-        printstate(vbat, duty, rms, mode, puffs, pufftime, res);
+        printstate(vbat, duty, rms, mode, res);
       } break;
     case 1:
       if (lock == true) {
@@ -158,35 +170,51 @@ void loop() {
       else if (manual == false) res = gainres(ohmmetpower, ohmmet, probes);
       lock = false;
       prepchar();
-      printstate(vbat, duty, rms, mode, puffs, pufftime, res); break;
+      printstate(vbat, duty, rms, mode, res); break;
     case 2:
       if (manual == true && analogRead(pot) <= 5) res = setohm(pot);
-      printstate(vbat, duty, rms, mode, puffs, pufftime, res); break;
+      else {
+        lcd.clear();
+        lcd.setCursor(0, 1);
+        lcd.print("Puffs: ");
+        lcd.print(puffs);
+        lcd.setCursor(0, 2);
+        lcd.print("PuffTime:");
+        lcd.print(pufftime, 2);
+        lcd.setCursor(0, 3);
+        lcd.print("Max power:");
+        lcd.print(maxwatt);
+        lcd.print("W");
+        delay(2000);
+        lcd.clear();
+      }
+      printstate(vbat, duty, rms, mode, res); break;
     case 3:
       if (mode == 1) {
         mode = 0;
         duty = gainduty(pot);
         rms = gainrms(vbat, duty);
+        if ((rms * rms / res) > maxwatt) rms = sqrt(res * maxwatt);
       } else {
         mode = 1;
         duty = 510;
         rms = vbat;
       }
-      printstate(vbat, duty, rms, mode, puffs, pufftime, res); break;
+      printstate(vbat, duty, rms, mode, res); break;
     case 4:
       if (inv == 1) inv = 0; else inv = 1;
       lcd.setInverse(inv); break;
     case 5:
       on = false; power();
-      printstate(vbat, duty, rms, mode, puffs, pufftime, res); break;
+      printstate(vbat, duty, rms, mode, res); break;
     case 6:
       serv(baud, vbat, duty, rms, mode, puffs, pufftime, res); break;
   }
-  if (cnt != 0) lastpress = millis();
-  if ((millis() - lastpress) >= (dim * 1000) && cnt == 0 && lock == false) {
+  /*if (cnt != 0) lastpress = millis();
+    if ((millis() - lastpress) >= (dim * 1000) && cnt == 0 && lock == false) {
     lcd.stop();
     lock = true;
-  }
+    }*/
 }
 //MOSFET port, duty cycle, fire button port
 void go(int pftmp, float dutmp, int fitmp) {
@@ -197,7 +225,7 @@ void go(int pftmp, float dutmp, int fitmp) {
   analogWrite(pfet, dutmp);
   while (digitalRead(fitmp) != 0 && licz <= timeout) { //It's not rocket science
     licz = (millis() - czas) / 1000;
-    lcd.setCursor(33, 4);
+    lcd.setCursor(30, 4);
     lcd.print(licz, 2);
   }
   digitalWrite(pfet, HIGH);
@@ -214,6 +242,7 @@ void go(int pftmp, float dutmp, int fitmp) {
     licz = timeout;
   }
   pufftime += licz;
+  lcd.setCursor(0, 4);
   lcd.clearLine();
   puffs = puffs + 1;
 }
@@ -239,6 +268,17 @@ float setohm(int potmp) { //If you know resistance of coil
   lcd.clear();
   lcd.setCursor(0, 0);
   lcd.print("Set Resistance");
+  lcd.setCursor(0, 3);
+  lcd.print("Puffs: ");
+  lcd.println(puffs);
+  lcd.setCursor(0, 4);
+  lcd.print("PuffTime:");
+  lcd.println(pufftime, 2);
+  lcd.setCursor(0, 5);
+  lcd.print("Max power:");
+  lcd.print(maxwatt);
+  lcd.print("W");
+  delay(2000);
   while (digitalRead(2) != true) {
     tempohm = analogRead(potmp);
     tempohm /= 1023.0; //3 ohm max
@@ -248,6 +288,7 @@ float setohm(int potmp) { //If you know resistance of coil
     lcd.setCursor(30, 2);
     lcd.print(tempohm);
   }
+
   lcd.clear();
   return (tempohm);
 }
@@ -324,7 +365,7 @@ void serv(int tmpbaud, float vbatmp, float dutmp, float rmstmp, int modtmp, int 
   Serial.println("-=-=-=-=-=-=-=-=-=-=-=-=-=-=-");
   Serial.end();
 }
-void printstate(float vbatmp, float dutmp, float rmstmp, int modtmp, int pufftmp, float pufftmp2, float restmp) {
+void printstate(float vbatmp, float dutmp, float rmstmp, int modtmp, float restmp) {
   cbat = ((vbatmp - vbord) * 100);
   if (cbat < 0) cbat = 0;
   lcd.setCursor(0, 0);
@@ -333,29 +374,26 @@ void printstate(float vbatmp, float dutmp, float rmstmp, int modtmp, int pufftmp
   if (modtmp == 0) lcd.print("Regulated mode");
   if (modtmp == 1) lcd.print(" Bypass mode! ");
   lcd.setCursor(0, 2);
-  lcd.print("Voltage: ");
-  lcd.print(rmstmp, 1);
-  lcd.print("V");
-  lcd.setCursor(0, 3);
-  lcd.print("Puffs: ");
-  lcd.println(pufftmp);
-  lcd.setCursor(0, 4);
-  lcd.print("PuffTime:");
-  lcd.println(pufftmp2, 2);
-  lcd.setCursor(0, 5);
   lcd.print(cbat, 0);
   lcd.print("% ");
-  lcd.setCursor(30, 5);
-  if (restmp > 9.99) restmp = 9.99;
-  if (restmp < 0.03) restmp = 0.00;
-  lcd.print(restmp, 2);
-  lcd.write(0);
-  lcd.setCursor(79, 5);
+  lcd.setCursor(30, 2);
+  int watts = round(rms * rms / res);
+  lcd.print(watts);
+  lcd.print("W   ");
+  lcd.setCursor(79, 2);
   if (cbat <= 100 && cbat >= 95) lcd.write(1);
   if (cbat < 95 && cbat >= 70) lcd.write(2);
   if (cbat < 70 && cbat >= 40) lcd.write(3);
   if (cbat < 40 && cbat >= 15) lcd.write(4);
   if (cbat < 15) lcd.write(5);
+  lcd.setCursor(30, 3);
+  lcd.print(rmstmp, 1);
+  lcd.print("V");
+  lcd.setCursor(30, 4);
+  if (restmp > 9.99) restmp = 9.99;
+  if (restmp < 0.03) restmp = 0.00;
+  lcd.print(restmp, 2);
+  lcd.write(0);
 }
 void setPwmFrequency(int pin, int divisor) {
   byte mode;
