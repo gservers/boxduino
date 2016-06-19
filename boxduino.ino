@@ -22,14 +22,15 @@ bool on = true; //Check if powered
 bool inv = false; //Screen inverted
 bool lock = false; //Autofire
 const int baud = 9600; //Serial baudrate
+
 ClickButton fire(2, HIGH); //Define fire button as object
-const int pfet = 3; //Trigger (+) channel of P-FET
-const int ohmmetpower = 9; //Ohmmeter power supply
+const int pfet = 9; //Trigger (+) channel of P-FET
+const int ohmmetpower = 8; //Ohmmeter power supply
 const int pot = A0; //Potentiometer
 const int volt = A1; // Vin voltmeter
 const int ohmmet = A2; //Ohmmeter output
 
-const int probes = 10; //How many readings will be get
+const int probes = 15; //How many readings will be get
 const float r1 = 1000000.0; //R1 of Vin voltmeter
 const float r2 = 100000.0; //R2 Vin voltmeter
 const float vin = 8.4; //Max. supply voltage
@@ -82,7 +83,10 @@ const unsigned char splashscreen[] = {
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 };
 void setup() {
-  TCCR2B = TCCR2B & 0b11111000 | 0x01; //31372.55Hz, 510 cycle length
+  lcd.begin();
+  lcd.setContrast(65);
+  lcd.drawBitmap(splashscreen, 84, 48);
+  setPwmFrequency(9, 1); //31372.55Hz, 510 cycle length
   pinMode(pot, INPUT);
   pinMode(volt, INPUT);
   pinMode(2, INPUT);
@@ -90,17 +94,11 @@ void setup() {
   digitalWrite(pfet, HIGH);
   pinMode(ohmmetpower, OUTPUT);
   pinMode(ohmmet, INPUT);
-  lcd.begin();
   prepchar();
   fire.debounceTime = 10;
   fire.multiclickTime = 400;
   fire.longClickTime = 200;
   on = true;
-  lcd.clear();
-  lcd.drawBitmap(splashscreen, 84, 48);
-  delay(2500);
-  lcd.clear();
-  lcd.setCursor(0, 0);
   digitalWrite(pfet, HIGH);
   digitalWrite(ohmmetpower, LOW);
   vbat = gainvbat(volt, r1, r2);
@@ -113,6 +111,9 @@ void setup() {
     case 1:
       duty = 510; rms = vbat; break;
   }
+  delay(1500);
+  lcd.clear();
+  lcd.setCursor(0, 0);
   printstate(vbat, duty, rms, mode, puffs, pufftime, res);
   lastpress = millis();
 }
@@ -126,7 +127,7 @@ void loop() {
     case 1:
       duty = 510; rms = vbat; break;
   }
-  
+
   lcd.setCursor(54, 2);
   lcd.print(rms, 1);
   lcd.print("V");
@@ -150,10 +151,11 @@ void loop() {
         printstate(vbat, duty, rms, mode, puffs, pufftime, res);
       } break;
     case 1:
-      if (lock == true) lcd.begin();
-      else {
-        if (manual == false) res = gainres(ohmmetpower, ohmmet, probes);
+      if (lock == true) {
+        lcd.begin();
+        lcd.setContrast(65);
       }
+      else if (manual == false) res = gainres(ohmmetpower, ohmmet, probes);
       lock = false;
       prepchar();
       printstate(vbat, duty, rms, mode, puffs, pufftime, res); break;
@@ -354,4 +356,34 @@ void printstate(float vbatmp, float dutmp, float rmstmp, int modtmp, int pufftmp
   if (cbat < 70 && cbat >= 40) lcd.write(3);
   if (cbat < 40 && cbat >= 15) lcd.write(4);
   if (cbat < 15) lcd.write(5);
+}
+void setPwmFrequency(int pin, int divisor) {
+  byte mode;
+  if (pin == 5 || pin == 6 || pin == 9 || pin == 10) {
+    switch (divisor) {
+      case 1: mode = 0x01; break;
+      case 8: mode = 0x02; break;
+      case 64: mode = 0x03; break;
+      case 256: mode = 0x04; break;
+      case 1024: mode = 0x05; break;
+      default: return;
+    }
+    if (pin == 5 || pin == 6) {
+      TCCR0B = TCCR0B & 0b11111000 | mode;
+    } else {
+      TCCR1B = TCCR1B & 0b11111000 | mode;
+    }
+  } else if (pin == 3 || pin == 11) {
+    switch (divisor) {
+      case 1: mode = 0x01; break;
+      case 8: mode = 0x02; break;
+      case 32: mode = 0x03; break;
+      case 64: mode = 0x04; break;
+      case 128: mode = 0x05; break;
+      case 256: mode = 0x06; break;
+      case 1024: mode = 0x7; break;
+      default: return;
+    }
+    TCCR2B = TCCR2B & 0b11111000 | mode;
+  }
 }

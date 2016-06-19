@@ -80,7 +80,7 @@ void PCD8544::begin(unsigned char width, unsigned char height, unsigned char mod
   digitalWrite(this->pin_reset, HIGH);
   digitalWrite(this->pin_sce, HIGH);
   digitalWrite(this->pin_reset, LOW);
-  delay(6400);
+  delay(100);
   digitalWrite(this->pin_reset, HIGH);
 
   // Set the LCD parameters...
@@ -103,7 +103,7 @@ void PCD8544::begin(unsigned char width, unsigned char height, unsigned char mod
   // Activate LCD...
   this->send(PCD8544_CMD, 0x08);  // display blank
   this->send(PCD8544_CMD, 0x0c);  // normal mode (0x0d = inverse mode)
-  delay(6400);
+  delay(100);
 
   // Place the cursor at the origin...
   this->send(PCD8544_CMD, 0x80);
