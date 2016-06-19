@@ -22,6 +22,7 @@ bool on = true; //Check if powered
 bool inv = false; //Screen inverted
 bool lock = false; //Autofire
 const int baud = 9600; //Serial baudrate
+const int maxwatt = 200; //Max watts
 
 ClickButton fire(2, HIGH); //Define fire button as object
 const int pfet = 9; //Trigger (+) channel of P-FET
@@ -29,7 +30,6 @@ const int ohmmetpower = 8; //Ohmmeter power supply
 const int pot = A0; //Potentiometer
 const int volt = A1; // Vin voltmeter
 const int ohmmet = A2; //Ohmmeter output
-const int maxwatt = 200; //Max power
 
 const int probes = 15; //How many readings will be get
 const float r1 = 1000000.0; //R1 of Vin voltmeter
@@ -50,12 +50,10 @@ float pufftime = 0; //Total puff time
 float state = 0; //% of potentiometer scale
 float rms = 0;  //RMS voltage
 float duty = 0; //duty cycle (0-255)
-float maxduty = 0; //maximum duty
 float vbat = 0; //Vin voltage
 float cbat = 0; //Baterry %
 float res = 0; //Resistance
 float minres = 0; //Minimal resistance
-float maxvolt = 0; //Max voltage
 int watts = 0; //Watts
 
 const int timeout = 10; //Fire limit
@@ -108,7 +106,6 @@ void setup() {
   digitalWrite(ohmmetpower, LOW);
   vbat = gainvbat(volt, r1, r2);
   minres = vbat * vbat / maxwatt;
-  maxvolt = sqrt(minres * maxwatt);
   if (manual == false)
     res = gainres(ohmmetpower, ohmmet, probes);
   else res = setohm(pot);
@@ -116,7 +113,6 @@ void setup() {
     case 0:
       duty = gainduty(pot); rms = gainrms(vbat, duty);
       watts = round(rms * rms / res);
-      break;
     case 1:
       duty = 255; rms = vbat; break;
   }
@@ -133,7 +129,7 @@ void loop() {
   switch (mode) {
     case 0:
       duty = gainduty(pot); rms = gainrms(vbat, duty);
-      watts = round(rms * rms / res); break;
+      watts = round(rms * rms / res);
     case 1:
       duty = 255; rms = vbat;
       watts = round(rms * rms / res); break;
@@ -159,18 +155,18 @@ void loop() {
   switch (cnt) {
     //default: printstate(vbat, duty, rms, mode, res); break;
     case -1:
-      if (res > minres) {
-        if (digitalRead(2) == 1 && lock == false) {
-          printstate(vbat, duty, rms, mode, res);
-          go(pfet, duty, 2);
-          printstate(vbat, duty, rms, mode, res);
-        }
-      } else {
-        lcd.setCursor(0, 3);
-        lcd.print(" Too low ohm!");
-        delay(1000);
-        lcd.clearLine();
+      //if (res > minres) {
+      if (digitalRead(2) == 1 && lock == false) {
+        printstate(vbat, duty, rms, mode, res);
+        go(pfet, duty, 2);
+        printstate(vbat, duty, rms, mode, res);
       }
+      /* } else {
+          lcd.setCursor(0, 3);
+          lcd.print(" Too low ohm!");
+          delay(1000);
+          lcd.clearLine();
+        }*/
       break;
     case 1:
       if (lock == true) {
@@ -192,12 +188,12 @@ void loop() {
         lcd.print("PuffTime:");
         lcd.print(pufftime, 2);
         lcd.setCursor(0, 3);
-        lcd.print("Max power:");
-        lcd.print(maxwatt);
-        lcd.print("W");
-        lcd.setCursor(0, 4);
         lcd.print("Min ohm: ");
         lcd.print(minres);
+        lcd.setCursor(0,4);
+        lcd.print("Max Watts:");
+        lcd.print(maxwatt);
+        lcd.print("W");
         lcd.write(0);
         delay(2000);
         lcd.clear();
@@ -208,6 +204,7 @@ void loop() {
         mode = 0;
         duty = gainduty(pot);
         rms = gainrms(vbat, duty);
+        watts = round(rms * rms / res);
       } else {
         mode = 1;
         duty = 255;
@@ -287,10 +284,6 @@ float setohm(int potmp) { //If you know resistance of coil
   lcd.setCursor(0, 4);
   lcd.print("PuffTime:");
   lcd.println(pufftime, 2);
-  lcd.setCursor(0, 5);
-  lcd.print("Max power:");
-  lcd.print(maxwatt);
-  lcd.print("W");
   delay(2000);
   while (digitalRead(2) != true) {
     tempohm = analogRead(potmp);
