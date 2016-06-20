@@ -28,7 +28,7 @@ Easy and clear, isn't it?
   * Screen refreshing! - RMS voltage and resistance, the only thing that should be  
 
 ###Currently unavaiable:
-  * Backlight data as fast as I need)  
+  * Backlight 
   * Scheme  
 
 ###Controls:  

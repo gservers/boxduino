@@ -112,7 +112,7 @@ void setup() {
   switch (mode) {
     case 0:
       duty = gainduty(pot); rms = gainrms(vbat, duty);
-      watts = round(rms * rms / res);
+      watts = round(rms * rms / res);break;
     case 1:
       duty = 255; rms = vbat; break;
   }
@@ -129,7 +129,7 @@ void loop() {
   switch (mode) {
     case 0:
       duty = gainduty(pot); rms = gainrms(vbat, duty);
-      watts = round(rms * rms / res);
+      watts = round(rms * rms / res);break;
     case 1:
       duty = 255; rms = vbat;
       watts = round(rms * rms / res); break;
@@ -194,7 +194,6 @@ void loop() {
         lcd.print("Max Watts:");
         lcd.print(maxwatt);
         lcd.print("W");
-        lcd.write(0);
         delay(2000);
         lcd.clear();
       }
@@ -259,7 +258,10 @@ void go(int pftmp, float dutmp, int fitmp) {
 //Potentiometer port
 int gainduty(float potmp) {
   float dutmp = analogRead(potmp);
+  Serial.print(duty);
+  Serial.print(" | ");
   dutmp = map(dutmp, 0, 1023, 0, 255);
+  Serial.println(duty);
   return (dutmp);
 }
 //Vin voltmeter port, R1, R2
@@ -278,10 +280,14 @@ float setohm(int potmp) { //If you know resistance of coil
   lcd.clear();
   lcd.setCursor(0, 0);
   lcd.print("Set Resistance");
-  lcd.setCursor(0, 3);
+  lcd.setCursor(0,3);
+  lcd.print("Min Ohm: ");
+  lcd.print(minres);
+  lcd.write(0);
+  lcd.setCursor(0, 4);
   lcd.print("Puffs: ");
   lcd.println(puffs);
-  lcd.setCursor(0, 4);
+  lcd.setCursor(0, 5);
   lcd.print("PuffTime:");
   lcd.println(pufftime, 2);
   delay(2000);
@@ -331,7 +337,7 @@ void power() {
       if ((millis() - teemp) >= 2500) on = true;
     }
     detachInterrupt(2);
-    if (on == true) lcd.setPower(true);
+    if (on == true) lcd.setPower(true); //Do something here to show it's working again
   } while (on == false);
 }
 void poweron() {
