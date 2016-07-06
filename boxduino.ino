@@ -1,15 +1,12 @@
 /*  Arduino controlled box mod by Marek Ledworowski.
-    If you want to use my code for your own box mod,
-    please contact me first at fotelpl@gmail.com
     I'm not responsible for dead MCU's, burnt PC's,
     smoked cigarettes or electrocutions.
-    This sketch is in early dev stage, so there is no
-    warranty it won't drink all your milk and steal
-    your car.
-    TL;DR - You are responsible for this. Not me.
-            Please don't sell my code ir it's part
-            without my permission. Thanks!
-    Updates coil resistance automatically. FINALLY!.
+    I'm not responsible for this sketch, even if it
+    poops on your lawn - You let him do it.
+
+    Please don't sell it as Yours, but feel free to use
+    it WITHOUT financial and/or other benefits.
+    Any questions? Contact me at fotelpl@gmail.comS
 */
 
 #include "libraries/PCD8544/PCD8544.h" //LCD Library
@@ -22,7 +19,7 @@ bool on = true; //Check if powered
 bool inv = false; //Screen inverted
 bool lock = false; //Autofire
 const int baud = 9600; //Serial baudrate
-const int maxwatt = 200; //Max watts
+const int maxwatt = 100; //Max watts
 
 ClickButton fire(2, HIGH); //Define fire button as object
 const int pfet = 9; //Trigger (+) channel of P-FET
@@ -31,12 +28,12 @@ const int pot = A0; //Potentiometer
 const int volt = A1; // Vin voltmeter
 const int ohmmet = A2; //Ohmmeter output
 
-const int probes = 15; //How many readings will be get
+const int probes = 15; //How many resistance samples will be taken
 const float r1 = 1000000.0; //R1 of Vin voltmeter
 const float r2 = 100000.0; //R2 Vin voltmeter
 const float vin = 8.4; //Max. supply voltage
 const float vbord = 6; //Max. discharge voltage
-const float ohmcal = 0.08; //Resistance of connections. Just short wires,
+const float ohmcal = 0.08; //Resistance of connections, just put copper wire between pins.
 //Check the readings and change value if needed
 
 int mode = 0; //0 - VV/VW, 1 - BYPASS
@@ -87,37 +84,36 @@ const unsigned char splashscreen[] = {
 };
 void setup() {
   lcd.begin();
-  lcd.setContrast(65);
+  lcd.setContrast(65); //We want to see something, right?
   lcd.drawBitmap(splashscreen, 84, 48);
-  setPwmFrequency(9, 1); //31372.55Hz, 255 cycle length
-  pinMode(pot, INPUT);
-  pinMode(volt, INPUT);
-  pinMode(2, INPUT);
-  pinMode(pfet, OUTPUT);
-  digitalWrite(pfet, HIGH);
-  pinMode(ohmmetpower, OUTPUT);
-  pinMode(ohmmet, INPUT);
-  prepchar();
-  fire.debounceTime = 10;
-  fire.multiclickTime = 400;
-  fire.longClickTime = 200;
-  on = true;
-  digitalWrite(pfet, HIGH);
-  digitalWrite(ohmmetpower, LOW);
-  vbat = gainvbat(volt, r1, r2);
+  setPwmFrequency(9, 1); //31372.55Hz, 256 cycle length (0-255)
+  pinMode(pot, INPUT); //Potentiometer
+  pinMode(volt, INPUT); //Voltmeter
+  pinMode(2, INPUT); //Button
+  pinMode(pfet, OUTPUT); //P-FET transistor out
+  pinMode(ohmmetpower, OUTPUT); //Ohmmeter power supply
+  pinMode(ohmmet, INPUT); //Ohmmeter
+  prepchar(); //Send custom chars to display's RAM
+  fire.debounceTime = 10; //Single click
+  fire.multiclickTime = 400; //Time for many clicks
+  fire.longClickTime = 200; //Long click timer
+  on = true; //Set this flag to enable screen and stuff
+  digitalWrite(pfet, HIGH); //Make sure it won't fire without us
+  digitalWrite(ohmmetpower, LOW); //Disable ohmmeter
+  vbat = gainvbat(volt, r1, r2); //Performing initial calculations
   minres = vbat * vbat / maxwatt;
-  if (manual == false)
-    res = gainres(ohmmetpower, ohmmet, probes);
-  else res = setohm(pot);
   switch (mode) {
-    case 0:
+    case 0: //VV/VW
       duty = gainduty(pot); rms = gainrms(vbat, duty);
-      watts = round(rms * rms / res);break;
-    case 1:
+      watts = round(rms * rms / res); break;
+    case 1: //Bypass
       duty = 255; rms = vbat; break;
-  }
+  } //As far, we're finished
   delay(1500);
   lcd.clear();
+  if (manual == false)
+    res = gainres(ohmmetpower, ohmmet, probes); //LM317 is present so it checks resistance
+  else res = setohm(pot); //No LM317 = no automatic updates
   lcd.setCursor(0, 0);
   printstate(vbat, duty, rms, mode, res);
   lastpress = millis();
@@ -129,7 +125,7 @@ void loop() {
   switch (mode) {
     case 0:
       duty = gainduty(pot); rms = gainrms(vbat, duty);
-      watts = round(rms * rms / res);break;
+      watts = round(rms * rms / res); break;
     case 1:
       duty = 255; rms = vbat;
       watts = round(rms * rms / res); break;
@@ -148,25 +144,23 @@ void loop() {
   lcd.write(0);
 
   duty = abs(duty - 255); //P-FET transistor reacts to low state soooo...
-  //if (duty < 0) duty *= -1; //The value must be inverted
+  //The value must be inverted
   fire.Update();
   cnt = fire.clicks;
   if (cnt != 0) lastpress = millis();
   switch (cnt) {
-    //default: printstate(vbat, duty, rms, mode, res); break;
     case -1:
-      //if (res > minres) {
-      if (digitalRead(2) == 1 && lock == false) {
+      if (digitalRead(2) == 1 && lock == false && res > minres) {
         printstate(vbat, duty, rms, mode, res);
         go(pfet, duty, 2);
         printstate(vbat, duty, rms, mode, res);
       }
-      /* } else {
-          lcd.setCursor(0, 3);
-          lcd.print(" Too low ohm!");
-          delay(1000);
-          lcd.clearLine();
-        }*/
+      if (digitalRead(2) == 1 && lock == false && res < minres) {
+        lcd.setCursor(0, 3);
+        lcd.print(" Too low ohm!");
+        while (digitalRead(2) == HIGH) {}
+        lcd.clearLine();
+      }
       break;
     case 1:
       if (lock == true) {
@@ -182,18 +176,22 @@ void loop() {
       else {
         lcd.clear();
         lcd.setCursor(0, 1);
-        lcd.print("Puffs: ");
-        lcd.print(puffs);
-        lcd.setCursor(0, 2);
-        lcd.print("PuffTime:");
-        lcd.print(pufftime, 2);
-        lcd.setCursor(0, 3);
         lcd.print("Min ohm: ");
         lcd.print(minres);
-        lcd.setCursor(0,4);
+        lcd.write(0);
+        lcd.setCursor(0, 2);
         lcd.print("Max Watts:");
         lcd.print(maxwatt);
         lcd.print("W");
+        lcd.setCursor(0, 3);
+        lcd.print("Puffs: ");
+        lcd.print(puffs);
+        lcd.setCursor(0, 4);
+        lcd.print("PuffTime:");
+        lcd.print(pufftime, 2);
+        lcd.setCursor(0, 5);
+        if (manual == true)lcd.print("    Manual");
+        else lcd.print("  Automatic");
         delay(2000);
         lcd.clear();
       }
@@ -219,11 +217,11 @@ void loop() {
     case 6:
       serv(baud, vbat, duty, rms, mode, puffs, pufftime, res); break;
   }
-  /*if (cnt != 0) lastpress = millis();
-    if ((millis() - lastpress) >= (dim * 1000) && cnt == 0 && lock == false) {
+  if (cnt != 0) lastpress = millis();
+  if ((millis() - lastpress) >= (dim * 1000) && cnt == 0 && lock == false) {
     lcd.stop();
     lock = true;
-    }*/
+  }
 }
 //MOSFET port, duty cycle, fire button port
 void go(int pftmp, float dutmp, int fitmp) {
@@ -278,9 +276,10 @@ float gainrms(float vbatmp, float dutmp) {
 float setohm(int potmp) { //If you know resistance of coil
   float tempohm;
   lcd.clear();
+  delayMicroseconds(1);
   lcd.setCursor(0, 0);
-  lcd.print("Set Resistance");
-  lcd.setCursor(0,3);
+  lcd.print("iet Resistance");
+  lcd.setCursor(0, 3);
   lcd.print("Min Ohm: ");
   lcd.print(minres);
   lcd.write(0);
