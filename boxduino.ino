@@ -6,7 +6,11 @@
 
     Please don't sell it as Yours, but feel free to use
     it WITHOUT financial and/or other benefits.
-    Any questions? Contact me at fotelpl@gmail.comS
+    Any questions? Contact me at fotelpl@gmail.com
+
+    To do:
+      - lock for too low/high resistance
+      - lock for too high power
 */
 
 #include "libraries/PCD8544/PCD8544.h" //LCD Library
@@ -173,20 +177,20 @@ void loop() {
       printstate(vbat, duty, rms, mode, res); break;
     case 2:
       lcd.clear();
-      if (manual == true && analogRead(pot) <= 5) res = setohm(pot);
+      if (/*manual == true && */analogRead(pot) <= 5) res = setohm(pot);
       else {
-        lcd.setCursor(0, 1);
+        lcd.setCursor(0, 0);
         lcd.print("Min ohm: ");
         lcd.print(minres);
         lcd.write(0);
-        lcd.setCursor(0, 2);
+        lcd.setCursor(0, 1);
         lcd.print("Max Watts:");
         lcd.print(maxwatt);
         lcd.print("W");
-        lcd.setCursor(0, 3);
+        lcd.setCursor(0, 2);
         lcd.print("Puffs: ");
         lcd.print(puffs);
-        lcd.setCursor(0, 4);
+        lcd.setCursor(0, 3);
         lcd.print("PuffTime:");
         lcd.print(pufftime, 2);
         lcd.setCursor(0, 5);
@@ -277,10 +281,14 @@ float setohm(int potmp) { //If you know resistance of coil
   float tempohm;
   lcd.setCursor(0, 0);
   lcd.print("Set Resistance");
-  lcd.setCursor(0, 3);
-  lcd.print("Min Ohm: ");
+  lcd.setCursor(0, 2);
+  lcd.print("Min ohm: ");
   lcd.print(minres);
   lcd.write(0);
+  lcd.setCursor(0, 3);
+  lcd.print("Max Watts:");
+  lcd.print(maxwatt);
+  lcd.print("W");
   lcd.setCursor(0, 4);
   lcd.print("Puffs: ");
   lcd.println(puffs);
