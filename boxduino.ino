@@ -172,9 +172,9 @@ void loop() {
       prepchar();
       printstate(vbat, duty, rms, mode, res); break;
     case 2:
+      lcd.clear();
       if (manual == true && analogRead(pot) <= 5) res = setohm(pot);
       else {
-        lcd.clear();
         lcd.setCursor(0, 1);
         lcd.print("Min ohm: ");
         lcd.print(minres);
@@ -193,8 +193,8 @@ void loop() {
         if (manual == true)lcd.print("    Manual");
         else lcd.print("  Automatic");
         delay(2000);
-        lcd.clear();
       }
+      lcd.clear();
       printstate(vbat, duty, rms, mode, res); break;
     case 3:
       if (mode == 1) {
@@ -275,10 +275,8 @@ float gainrms(float vbatmp, float dutmp) {
 }
 float setohm(int potmp) { //If you know resistance of coil
   float tempohm;
-  lcd.clear();
-  delayMicroseconds(1);
-  lcd.setCursor(1, 1);
-  lcd.print("Set Resistanc");
+  lcd.setCursor(0, 0);
+  lcd.print("Set Resistance");
   lcd.setCursor(0, 3);
   lcd.print("Min Ohm: ");
   lcd.print(minres);
@@ -288,18 +286,19 @@ float setohm(int potmp) { //If you know resistance of coil
   lcd.println(puffs);
   lcd.setCursor(0, 5);
   lcd.print("PuffTime:");
-  lcd.println(pufftime, 2);
-  delay(2000);
+  lcd.println(pufftime, 1);
   while (digitalRead(2) != true) {
+    lcd.setCursor(0, 0);
+    lcd.print("Set Resistance");
     tempohm = analogRead(potmp);
     tempohm /= 1023.0; //9.99 ohm max
     tempohm *= 999;
     tempohm = ceil(tempohm);
     tempohm /= 100;
-    lcd.setCursor(30, 2);
+    lcd.setCursor(30, 1);
     lcd.print(tempohm);
+    lcd.write(0);
   }
-
   lcd.clear();
   return (tempohm);
 }
@@ -380,7 +379,7 @@ void printstate(float vbatmp, float dutmp, float rmstmp, int modtmp, float restm
   cbat = ((vbatmp - vbord) * 100);
   if (cbat < 0) cbat = 0;
   lcd.setCursor(0, 0);
-  lcd.println("   BOXduino");
+  lcd.print("   BOXduino");
   lcd.setCursor(0, 1);
   if (modtmp == 0) lcd.print("Regulated mode");
   if (modtmp == 1) lcd.print(" Bypass mode! ");
