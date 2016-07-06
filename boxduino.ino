@@ -277,8 +277,8 @@ float setohm(int potmp) { //If you know resistance of coil
   float tempohm;
   lcd.clear();
   delayMicroseconds(1);
-  lcd.setCursor(0, 0);
-  lcd.print("iet Resistance");
+  lcd.setCursor(1, 1);
+  lcd.print("Set Resistanc");
   lcd.setCursor(0, 3);
   lcd.print("Min Ohm: ");
   lcd.print(minres);
