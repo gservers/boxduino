@@ -19,16 +19,12 @@ It took much work, and I'm still not finished! Time to solder this up, because b
 ###Controls:  
   * Refresh everything: 1x click  
   * Fire: Hold the button  
-  
   * Switch VV / Bypass: 3x click  
   * Night mode (inverting display): 4x click 
-  
   * Power off: 5x click  
   * Power on: Hold the button (while off)  
-  
   * Serial debug: 6x click  
   * Wakeup the screen: 1x click  
-  
   * Change resistance (potentiometer on 0 and manual = true): 2x click
   * Check puffs, minimal resistance and max wattage: 2x click
   
