@@ -5,7 +5,7 @@
     poops on your lawn - You let him do it.
 
     Please don't sell it as Yours, but feel free to use
-    it WITHOUT financial and/or other benefits.
+    it WITHOUT financial benefits.
     Any questions? Contact me at fotelpl@gmail.com
 
     To do:
